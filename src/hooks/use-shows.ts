@@ -12,9 +12,6 @@ import {
   deleteDoc,
   query,
   onSnapshot,
-  where,
-  getDocs,
-  writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -47,7 +44,12 @@ const useShowsStore = create<ShowsState>()(
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const shows: Show[] = [];
             querySnapshot.forEach((doc) => {
-                shows.push({ id: doc.id, ...doc.data() } as Show);
+                const data = doc.data();
+                shows.push({ 
+                    id: data.id, // TMDb ID
+                    docId: doc.id, // Firestore Doc ID
+                    ...data 
+                } as Show);
             });
             set({ shows });
             get().fetchMissingDetails(shows);
@@ -96,7 +98,9 @@ const useShowsStore = create<ShowsState>()(
         
         try {
           await addDoc(collection(db, 'shows'), {
-            ...show,
+            id: show.id,
+            name: show.name,
+            poster_path: show.poster_path,
             watched_episodes: []
           });
           toast({
@@ -111,16 +115,9 @@ const useShowsStore = create<ShowsState>()(
 
       removeShow: async (showId) => {
         const showToRemove = get().shows.find(s => s.id === showId);
-        if (showToRemove) {
+        if (showToRemove && showToRemove.docId) {
           try {
-            const q = query(collection(db, "shows"), where("id", "==", showId));
-            const querySnapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            querySnapshot.forEach((doc) => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-
+            await deleteDoc(doc(db, "shows", showToRemove.docId));
             toast({
                 variant: 'destructive',
                 title: 'Série Removida',
@@ -135,7 +132,7 @@ const useShowsStore = create<ShowsState>()(
 
       toggleWatchedEpisode: async (showId, episode, isWatched) => {
         const showToUpdate = get().shows.find(s => s.id === showId);
-        if (!showToUpdate) return;
+        if (!showToUpdate || !showToUpdate.docId) return;
 
         const episodeId = `S${episode.season_number}E${episode.episode_number}`;
         const watchedEpisodes = showToUpdate.watched_episodes || [];
@@ -149,12 +146,8 @@ const useShowsStore = create<ShowsState>()(
         }
 
         try {
-            const q = query(collection(db, "shows"), where("id", "==", showId));
-            const querySnapshot = await getDocs(q);
-            const docToUpdate = querySnapshot.docs[0];
-            if (docToUpdate) {
-                await updateDoc(docToUpdate.ref, { watched_episodes: newWatchedEpisodes });
-            }
+            const docRef = doc(db, "shows", showToUpdate.docId);
+            await updateDoc(docRef, { watched_episodes: newWatchedEpisodes });
         } catch(e) {
             console.error("Error updating watched episodes: ", e);
             toast({ variant: 'destructive', title: 'Erro ao atualizar episódios' });
@@ -163,7 +156,7 @@ const useShowsStore = create<ShowsState>()(
 
       toggleSeasonWatched: async (showId, seasonEpisodes, markAsWatched) => {
         const showToUpdate = get().shows.find(s => s.id === showId);
-        if (!showToUpdate) return;
+        if (!showToUpdate || !showToUpdate.docId) return;
         
         let watchedEpisodes = showToUpdate.watched_episodes || [];
 
@@ -182,12 +175,8 @@ const useShowsStore = create<ShowsState>()(
         }
 
          try {
-            const q = query(collection(db, "shows"), where("id", "==", showId));
-            const querySnapshot = await getDocs(q);
-            const docToUpdate = querySnapshot.docs[0];
-            if (docToUpdate) {
-                await updateDoc(docToUpdate.ref, { watched_episodes: watchedEpisodes });
-            }
+            const docRef = doc(db, "shows", showToUpdate.docId);
+            await updateDoc(docRef, { watched_episodes: watchedEpisodes });
         } catch(e) {
             console.error("Error updating season watched episodes: ", e);
             toast({ variant: 'destructive', title: 'Erro ao atualizar temporada' });

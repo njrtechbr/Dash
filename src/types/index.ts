@@ -26,6 +26,7 @@ export type WatchedEpisode = {
 
 export type Show = {
   id: number; // TMDb ID
+  docId?: string; // Firestore Doc ID
   name: string;
   poster_path: string | null;
   watched_episodes?: WatchedEpisode[];
@@ -117,6 +118,7 @@ export type DashboardCard = {
 // Movie Types
 export type Movie = {
   id: number; // TMDb ID
+  docId?: string; // Firestore Doc ID
   title: string;
   poster_path: string | null;
   watched: boolean;

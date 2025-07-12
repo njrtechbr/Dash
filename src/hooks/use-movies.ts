@@ -45,7 +45,12 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const movies: Movie[] = [];
             querySnapshot.forEach((doc) => {
-                movies.push({ id: doc.id, ...doc.data() } as Movie);
+                const data = doc.data();
+                movies.push({ 
+                    id: data.id, // TMDb ID
+                    docId: doc.id, // Firestore doc ID
+                    ...data 
+                } as Movie);
             });
             set({ movies });
             get().fetchMissingDetails(movies);
@@ -94,7 +99,9 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
 
         try {
             await addDoc(collection(db, 'movies'), {
-                ...movie,
+                id: movie.id,
+                title: movie.title,
+                poster_path: movie.poster_path,
                 watched: false
             });
             toast({
@@ -109,17 +116,9 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
 
     removeMovie: async (movieId) => {
         const movieToRemove = get().movies.find((m) => m.id === movieId);
-        if (movieToRemove) {
+        if (movieToRemove && movieToRemove.docId) {
             try {
-                // Since we don't store the firestore doc id on the movie object, we query for it
-                const q = query(collection(db, "movies"), where("id", "==", movieId));
-                const querySnapshot = await getDocs(q);
-                const batch = writeBatch(db);
-                querySnapshot.forEach((doc) => {
-                    batch.delete(doc.ref);
-                });
-                await batch.commit();
-
+                await deleteDoc(doc(db, "movies", movieToRemove.docId));
                 toast({
                     variant: 'destructive',
                     title: 'Filme Removido',
@@ -134,20 +133,15 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
 
     toggleMovieWatched: async (movieId) => {
         const movieToToggle = get().movies.find((m) => m.id === movieId);
-        if (movieToToggle) {
+        if (movieToToggle && movieToToggle.docId) {
             try {
-                 const q = query(collection(db, "movies"), where("id", "==", movieId));
-                 const querySnapshot = await getDocs(q);
-                 const docToUpdate = querySnapshot.docs[0];
-                 
-                 if(docToUpdate) {
-                    const newWatchedState = !movieToToggle.watched;
-                    await updateDoc(docToUpdate.ref, { watched: newWatchedState });
-                    toast({
-                        title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
-                        description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
-                    });
-                 }
+                const docRef = doc(db, "movies", movieToToggle.docId);
+                const newWatchedState = !movieToToggle.watched;
+                await updateDoc(docRef, { watched: newWatchedState });
+                toast({
+                    title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
+                    description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
+                });
             } catch(e) {
                 console.error("Error toggling watched state: ", e);
                 toast({ variant: 'destructive', title: 'Erro ao atualizar filme' });
