@@ -9,11 +9,12 @@ interface LinksState {
   isLoaded: boolean;
   linkToEdit: LinkItem | null;
   isLinkDialogOpen: boolean;
-  addLink: (link: Omit<LinkItem, 'id'>) => void;
-  addMultipleLinks: (newLinks: Omit<LinkItem, 'id'>[]) => void;
+  addLink: (link: Omit<LinkItem, 'id' | 'isFavorite'>) => void;
+  addMultipleLinks: (newLinks: Omit<LinkItem, 'id' | 'isFavorite'>[]) => void;
   updateLink: (id: string, updatedFields: Partial<Omit<LinkItem, 'id'>>) => void;
   deleteLink: (id: string) => void;
-  reorderLinks: (draggedId: string, targetId: string, targetGroup: string) => void;
+  toggleFavorite: (id: string) => void;
+  reorderLinks: (draggedId: string, targetId: string) => void;
   handleEditLink: (link: LinkItem) => void;
   handleAddNewLink: () => void;
   handleDeleteLink: (id: string) => void;
@@ -31,14 +32,14 @@ export const useLinks = create<LinksState>()(
       
       addLink: (link) =>
         set((state) => ({
-          links: [...state.links, { ...link, id: crypto.randomUUID() }],
+          links: [...state.links, { ...link, id: crypto.randomUUID(), isFavorite: false }],
         })),
 
       addMultipleLinks: (newLinks) =>
         set((state) => ({
           links: [
             ...state.links,
-            ...newLinks.map((link) => ({ ...link, id: crypto.randomUUID() })),
+            ...newLinks.map((link) => ({ ...link, id: crypto.randomUUID(), isFavorite: false })),
           ],
         })),
 
@@ -53,29 +54,34 @@ export const useLinks = create<LinksState>()(
         set((state) => ({
           links: state.links.filter((link) => link.id !== id),
         })),
+        
+      toggleFavorite: (id) =>
+        set((state) => ({
+          links: state.links.map((link) =>
+            link.id === id ? { ...link, isFavorite: !link.isFavorite } : link
+          ),
+        })),
 
-      reorderLinks: (draggedId, targetId, targetGroup) =>
+      reorderLinks: (draggedId, targetId) =>
         set((state) => {
           const currentLinks = [...state.links];
-          const draggedItem = currentLinks.find((l) => l.id === draggedId);
-          if (!draggedItem) return state;
+          const draggedItemIndex = currentLinks.findIndex((l) => l.id === draggedId);
+          const targetItemIndex = currentLinks.findIndex((l) => l.id === targetId);
+          
+          if (draggedItemIndex === -1 || targetItemIndex === -1) return state;
 
-          const updatedDraggedItem = { ...draggedItem, group: targetGroup };
-
-          let remainingLinks = currentLinks.filter((l) => l.id !== draggedId);
-          const targetIndex = remainingLinks.findIndex((l) => l.id === targetId);
-
-          if (targetIndex !== -1) {
-            remainingLinks.splice(targetIndex, 0, updatedDraggedItem);
-          } else {
-            const firstItemOfGroupIndex = remainingLinks.findIndex((l) => l.group === targetGroup);
-            if (firstItemOfGroupIndex !== -1) {
-              remainingLinks.splice(firstItemOfGroupIndex, 0, updatedDraggedItem);
-            } else {
-              remainingLinks.push(updatedDraggedItem);
-            }
+          const [draggedItem] = currentLinks.splice(draggedItemIndex, 1);
+          
+          // Update group if dropping on a different group (and not into favorites)
+          const targetItem = currentLinks[targetItemIndex > draggedItemIndex ? targetItemIndex -1 : targetItemIndex];
+          if (!targetItem.isFavorite) {
+              draggedItem.group = targetItem.group;
           }
-          return { links: remainingLinks };
+
+          const newTargetIndex = currentLinks.findIndex((l) => l.id === targetId);
+          currentLinks.splice(newTargetIndex, 0, draggedItem);
+          
+          return { links: currentLinks };
         }),
         
       handleEditLink: (link) => {

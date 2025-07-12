@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
@@ -127,7 +127,7 @@ export default function Dashboard() {
     if (!draggedItem || draggedItem.id === targetLink.id) {
         return;
     }
-    reorderLinks(draggedItem.id, targetLink.id, targetLink.group);
+    reorderLinks(draggedItem.id, targetLink.id);
   };
   
   const handleDragEnd = () => {
@@ -135,15 +135,23 @@ export default function Dashboard() {
     setDragOverItem(null);
   };
 
-  const groupedLinks = React.useMemo(() => {
-    return links.reduce((acc, link) => {
-      const group = link.group || 'Geral';
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(link);
-      return acc;
-    }, {} as Record<string, LinkItem[]>);
+  const { groupedLinks, favoriteLinks } = React.useMemo(() => {
+    const favorites: LinkItem[] = [];
+    const grouped: Record<string, LinkItem[]> = {};
+
+    links.forEach(link => {
+        if (link.isFavorite) {
+            favorites.push(link);
+        } else {
+            const group = link.group || 'Geral';
+            if (!grouped[group]) {
+                grouped[group] = [];
+            }
+            grouped[group].push(link);
+        }
+    });
+
+    return { groupedLinks: grouped, favoriteLinks: favorites };
   }, [links]);
 
   const isLoaded = areLinksLoaded && areSettingsLoaded;
@@ -239,39 +247,59 @@ export default function Dashboard() {
             </div>
         )}
         {isLoaded && links.length > 0 && (
-          <Accordion type="multiple" defaultValue={Object.keys(groupedLinks)} className="w-full space-y-4">
-            {Object.entries(groupedLinks).map(([group, groupLinks]) => (
-              <AccordionItem value={group} key={group} className="border-none">
-                <AccordionTrigger className="text-2xl font-bold tracking-tight px-4 py-3 bg-card/80 backdrop-blur-sm rounded-lg shadow-sm hover:no-underline">
-                  {group}
-                </AccordionTrigger>
-                <AccordionContent className="pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
-                    {groupLinks.map((link) => (
-                      <div
-                        key={link.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, link)}
-                        onDragOver={(e) => handleDragOver(e, link)}
-                        onDrop={(e) => handleDrop(e, link)}
-                        onDragEnd={handleDragEnd}
-                        onDragLeave={() => setDragOverItem(null)}
-                        className="cursor-move"
-                      >
-                        <LinkCard
-                          link={link}
-                          onEdit={() => handleEditLink(link)}
-                          onDelete={() => handleDeleteLink(link.id)}
-                          isDragging={draggedItem?.id === link.id}
-                          isDragOver={dragOverItem?.id === link.id}
-                        />
-                      </div>
+            <div className="space-y-4">
+                {favoriteLinks.length > 0 && (
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90 flex items-center gap-2"><Star className='h-6 w-6 text-yellow-400 fill-yellow-400'/> Favoritos</h2>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                            {favoriteLinks.map((link) => (
+                                <div key={link.id}>
+                                    <LinkCard
+                                    link={link}
+                                    onEdit={() => handleEditLink(link)}
+                                    onDelete={() => handleDeleteLink(link.id)}
+                                    isDragging={false}
+                                    isDragOver={false}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                <Accordion type="multiple" defaultValue={Object.keys(groupedLinks)} className="w-full space-y-4">
+                    {Object.entries(groupedLinks).map(([group, groupLinks]) => (
+                    <AccordionItem value={group} key={group} className="border-none">
+                        <AccordionTrigger className="text-2xl font-bold tracking-tight px-4 py-3 bg-card/80 backdrop-blur-sm rounded-lg shadow-sm hover:no-underline">
+                        {group}
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                            {groupLinks.map((link) => (
+                            <div
+                                key={link.id}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, link)}
+                                onDragOver={(e) => handleDragOver(e, link)}
+                                onDrop={(e) => handleDrop(e, link)}
+                                onDragEnd={handleDragEnd}
+                                onDragLeave={() => setDragOverItem(null)}
+                                className="cursor-move"
+                            >
+                                <LinkCard
+                                link={link}
+                                onEdit={() => handleEditLink(link)}
+                                onDelete={() => handleDeleteLink(link.id)}
+                                isDragging={draggedItem?.id === link.id}
+                                isDragOver={dragOverItem?.id === link.id}
+                                />
+                            </div>
+                            ))}
+                        </div>
+                        </AccordionContent>
+                    </AccordionItem>
                     ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                </Accordion>
+          </div>
         )}
         {isLoaded && links.length === 0 && shows.length === 0 && movies.length === 0 && (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed shadow-sm mt-16 bg-card/50">

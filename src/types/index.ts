@@ -1,3 +1,5 @@
+'use client';
+
 import type { LucideIcon } from 'lucide-react';
 
 export type LinkItem = {
@@ -7,6 +9,7 @@ export type LinkItem = {
   icon: string;
   group: string;
   description?: string;
+  isFavorite?: boolean;
 };
 
 export type Icon = {
@@ -135,6 +138,8 @@ export interface TMDbMovieDetails {
   release_date: string;
   genres: { id: number; name: string }[];
   runtime: number | null;
+  vote_average: number;
+  vote_count: number;
   videos?: {
     results: VideoResult[];
   };

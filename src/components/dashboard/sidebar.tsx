@@ -11,10 +11,6 @@ import {
     SidebarMenuButton,
     SidebarFooter,
     SidebarTrigger,
-    SidebarMenuSub,
-    SidebarMenuSubButton,
-    SidebarMenuSubItem,
-    useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { BatchLinkDialog } from './batch-link-dialog';
@@ -23,9 +19,7 @@ import { AddShowDialog } from './add-show-dialog';
 import { AddMovieDialog } from './add-movie-dialog';
 import { LinkDialog } from './link-dialog';
 import { useLinks } from '@/hooks/use-links';
-import { useMovies } from '@/hooks/use-movies';
-import { useShows } from '@/hooks/use-shows';
-import { Film, Home, Layers, LayoutGrid, Link as LinkIcon, Plus, Settings, Tv } from 'lucide-react';
+import { Film, Home, Layers, Plus, Settings, Tv } from 'lucide-react';
 import type { LinkItem } from '@/types';
 import { useToast } from '../ui/use-toast';
 
@@ -47,7 +41,7 @@ export function AppSidebar() {
     });
   }, []);
 
-  const handleSaveLink = (data: Omit<LinkItem, 'id'>, id?: string) => {
+  const handleSaveLink = (data: Omit<LinkItem, 'id' | 'isFavorite'>, id?: string) => {
     if (id) {
       updateLink(id, data);
       toast({ title: "Link Atualizado", description: "Seu link foi atualizado com sucesso." });
@@ -57,21 +51,11 @@ export function AppSidebar() {
     }
   };
 
-  const handleSaveBatchLinks = (links: Omit<LinkItem, 'id'>[]) => {
+  const handleSaveBatchLinks = (links: Omit<LinkItem, 'id' | 'isFavorite'>[]) => {
     addMultipleLinks(links);
     toast({ title: "Links Adicionados", description: `${links.length} novos links foram adicionados ao painel.` });
   };
   
-  const handleOpenDialog = (setter: (open: boolean) => void, globalSetter?: (open: boolean) => void) => {
-      setter(true);
-      if (globalSetter) {
-          globalSetter(true);
-      }
-  };
-
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
-
   return (
     <>
       <Sidebar variant="floating" collapsible="icon">

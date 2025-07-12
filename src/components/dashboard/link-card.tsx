@@ -9,12 +9,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, Star } from 'lucide-react';
 import { findIcon } from '@/lib/icons';
 import type { LinkItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
+import { useLinks } from '@/hooks/use-links';
 
 interface LinkCardProps {
   link: LinkItem;
@@ -26,11 +26,18 @@ interface LinkCardProps {
 
 export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: LinkCardProps) {
   const Icon = findIcon(link.icon);
+  const { toggleFavorite } = useLinks();
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite(link.id);
+  }
 
   return (
     <a
@@ -49,7 +56,8 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
         className={cn(
             'h-36 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-105 hover:-translate-y-1 hover:border-primary/50',
             isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
-            'bg-card/80 backdrop-blur-sm shadow-md hover:shadow-primary/20 flex flex-col'
+            'bg-card/80 backdrop-blur-sm shadow-md hover:shadow-primary/20 flex flex-col',
+             link.isFavorite && 'border-yellow-400/50'
         )}
       >
         <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center flex-grow">
@@ -73,6 +81,19 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
             </div>
         )}
       </Card>
+        <button
+            onClick={handleFavoriteClick}
+            className={cn(
+                'absolute top-2 left-2 h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-yellow-400/20',
+                link.isFavorite && 'opacity-100'
+            )}
+            aria-label={link.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+        >
+            <Star className={cn(
+                'h-5 w-5 text-yellow-400',
+                link.isFavorite ? 'fill-current' : 'fill-transparent'
+            )} />
+        </button>
       <div className="absolute top-2 right-2" onClick={handleMenuClick}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
