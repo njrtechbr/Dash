@@ -12,9 +12,6 @@ import {
   deleteDoc,
   query,
   onSnapshot,
-  where,
-  getDocs,
-  writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
