@@ -1,6 +1,6 @@
 'use server';
 
-import type { TMDbSearchResult, TMDbShowDetails } from '@/types';
+import type { TMDbSearchResult, TMDbShowDetails, SeasonDetails } from '@/types';
 
 const API_KEY = process.env.TMDB_API_KEY;
 const API_BASE_URL = 'https://api.themoviedb.org/3';
@@ -34,10 +34,10 @@ export async function getShowDetails(showId: number): Promise<TMDbShowDetails | 
         throw new Error('A chave da API do TMDb não está configurada.');
     }
 
-    const url = `${API_BASE_URL}/tv/${showId}?api_key=${API_KEY}&language=pt-BR`;
+    const url = `${API_BASE_URL}/tv/${showId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers`;
     
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalida a cada hora
         if (!response.ok) {
             console.error('Erro ao buscar detalhes da série:', await response.text());
             return null;
@@ -45,6 +45,26 @@ export async function getShowDetails(showId: number): Promise<TMDbShowDetails | 
         return await response.json();
     } catch (error) {
         console.error('Falha ao buscar detalhes da série:', error);
+        return null;
+    }
+}
+
+export async function getSeasonDetails(showId: number, seasonNumber: number): Promise<SeasonDetails | null> {
+    if (!API_KEY) {
+        throw new Error('A chave da API do TMDb não está configurada.');
+    }
+
+    const url = `${API_BASE_URL}/tv/${showId}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`;
+
+    try {
+        const response = await fetch(url, { next: { revalidate: 3600 } });
+        if (!response.ok) {
+            console.error(`Erro ao buscar detalhes da temporada ${seasonNumber}:`, await response.text());
+            return null;
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Falha ao buscar detalhes da temporada ${seasonNumber}:`, error);
         return null;
     }
 }

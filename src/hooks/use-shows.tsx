@@ -11,6 +11,7 @@ interface ShowsContextType {
   isLoaded: boolean;
   addShow: (show: Show) => void;
   removeShow: (showId: number) => void;
+  toggleWatchedEpisode: (showId: number, episodeId: string) => void;
 }
 
 const ShowsContext = createContext<ShowsContextType | undefined>(undefined);
@@ -50,7 +51,8 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
         })
         return prevShows;
       }
-      const updatedShows = [...prevShows, show];
+      const newShow = { ...show, watched_episodes: [] };
+      const updatedShows = [...prevShows, newShow];
       updateLocalStorage(updatedShows);
       toast({
         title: 'Série Adicionada!',
@@ -76,8 +78,26 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
+  const toggleWatchedEpisode = useCallback((showId: number, episodeId: string) => {
+    setShows(prevShows => {
+      const updatedShows = prevShows.map(show => {
+        if (show.id === showId) {
+          const watchedEpisodes = show.watched_episodes || [];
+          const isWatched = watchedEpisodes.includes(episodeId);
+          const newWatchedEpisodes = isWatched
+            ? watchedEpisodes.filter(id => id !== episodeId)
+            : [...watchedEpisodes, episodeId];
+          return { ...show, watched_episodes: newWatchedEpisodes };
+        }
+        return show;
+      });
+      updateLocalStorage(updatedShows);
+      return updatedShows;
+    });
+  }, []);
+
   return (
-    <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow }}>
+    <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow, toggleWatchedEpisode }}>
       {children}
     </ShowsContext.Provider>
   );
