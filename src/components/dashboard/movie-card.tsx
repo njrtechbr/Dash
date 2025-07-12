@@ -7,7 +7,7 @@ import type { TMDbMovieDetails, Movie, WatchProvider } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '../ui/button';
-import { Calendar, Clock, Trash2, Tag } from 'lucide-react';
+import { Calendar, Clock, Trash2, Tag, Eye, CheckCircle2 } from 'lucide-react';
 import { useMovies } from '@/hooks/use-movies';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
@@ -27,7 +27,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const { removeMovie } = useMovies();
+  const { removeMovie, toggleMovieWatched } = useMovies();
 
   React.useEffect(() => {
     const fetchDetails = async () => {
@@ -87,10 +87,27 @@ export function MovieCard({ movie }: MovieCardProps) {
 
   return (
     <Card className={cn(
-        "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group"
+        "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group",
+        movie.watched && "border-green-500/50"
     )}>
-      <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+      {movie.watched && (
+        <div className='absolute inset-0 bg-black/60 z-10 flex items-center justify-center'>
+            <CheckCircle2 className='h-16 w-16 text-green-500'/>
+        </div>
+      )}
+      <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
         <TooltipProvider>
+             <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant={movie.watched ? 'secondary' : 'default'} size="icon" className="h-8 w-8" onClick={() => toggleMovieWatched(movie.id)}>
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">Marcar como assistido</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{movie.watched ? 'Marcar como não assistido' : 'Marcar como assistido'}</p>
+                </TooltipContent>
+            </Tooltip>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => removeMovie(movie.id)}>

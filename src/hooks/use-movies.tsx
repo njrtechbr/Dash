@@ -9,8 +9,9 @@ const STORAGE_KEY = 'fluxdash-movies';
 interface MoviesContextType {
   movies: Movie[];
   isLoaded: boolean;
-  addMovie: (movie: Movie) => void;
+  addMovie: (movie: Omit<Movie, 'watched'>) => void;
   removeMovie: (movieId: number) => void;
+  toggleMovieWatched: (movieId: number) => void;
 }
 
 const MoviesContext = createContext<MoviesContextType | undefined>(undefined);
@@ -40,7 +41,7 @@ export function MoviesProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addMovie = useCallback((movie: Movie) => {
+  const addMovie = useCallback((movie: Omit<Movie, 'watched'>) => {
     let movieAlreadyExists = false;
     let movieTitle = '';
 
@@ -49,7 +50,8 @@ export function MoviesProvider({ children }: { children: ReactNode }) {
         movieAlreadyExists = true;
         return prevMovies;
       }
-      const updatedMovies = [...prevMovies, movie];
+      const newMovie = { ...movie, watched: false };
+      const updatedMovies = [...prevMovies, newMovie];
       updateLocalStorage(updatedMovies);
       movieTitle = movie.title;
       return updatedMovies;
@@ -91,7 +93,32 @@ export function MoviesProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
-  const value = { movies, isLoaded, addMovie, removeMovie };
+  const toggleMovieWatched = useCallback((movieId: number) => {
+    let movieTitle = '';
+    let isWatched = false;
+
+    setMovies(prevMovies => {
+        const updatedMovies = prevMovies.map(movie => {
+            if (movie.id === movieId) {
+                movieTitle = movie.title;
+                isWatched = !movie.watched;
+                return { ...movie, watched: isWatched };
+            }
+            return movie;
+        });
+        updateLocalStorage(updatedMovies);
+        return updatedMovies;
+    });
+    
+    if (movieTitle) {
+        toast({
+            title: `Filme ${isWatched ? 'Assistido' : 'Não Assistido'}`,
+            description: `Você marcou "${movieTitle}" como ${isWatched ? 'assistido' : 'não assistido'}.`
+        })
+    }
+  }, [toast]);
+
+  const value = { movies, isLoaded, addMovie, removeMovie, toggleMovieWatched };
 
   return (
     <MoviesContext.Provider value={value}>
