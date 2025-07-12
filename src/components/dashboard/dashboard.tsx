@@ -8,7 +8,7 @@ import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
 import { LinkDialog } from './link-dialog';
 import { BatchLinkDialog } from './batch-link-dialog';
-import type { LinkItem, WatchedEpisode } from '@/types';
+import type { LinkItem } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { AddShowDialog } from './add-show-dialog';
 import { useShows } from '@/hooks/use-shows';
 import { NextEpisodeCard } from './next-episode-card';
-import { WatchedHistoryDialog } from './watched-history-dialog';
+import { ShowDetailsDialog } from './show-details-dialog';
 
 
 interface InfoCardProps {
@@ -73,9 +73,9 @@ export default function Dashboard() {
   const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
   const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
-  const [showDialogOpen, setShowDialogOpen] = React.useState(false);
-  const [historyDialogOpen, setHistoryDialogOpen] = React.useState(false);
-  const [historyToShow, setHistoryToShow] = React.useState<{ showName: string; episodes: WatchedEpisode[] } | null>(null);
+  const [addShowDialogOpen, setAddShowDialogOpen] = React.useState(false);
+  const [showDetailsDialogOpen, setShowDetailsDialogOpen] = React.useState(false);
+  const [selectedShowId, setSelectedShowId] = React.useState<number | null>(null);
 
   const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
 
@@ -102,9 +102,9 @@ export default function Dashboard() {
     setLinkDialogOpen(true);
   };
 
-  const handleShowHistoryClick = (showName: string, episodes: WatchedEpisode[]) => {
-    setHistoryToShow({ showName, episodes });
-    setHistoryDialogOpen(true);
+  const handleShowDetailsClick = (showId: number) => {
+    setSelectedShowId(showId);
+    setShowDetailsDialogOpen(true);
   };
 
   const handleSaveLink = (data: Omit<LinkItem, 'id'>, id?: string) => {
@@ -171,7 +171,7 @@ export default function Dashboard() {
           FluxDash
         </h1>
         <div className="ml-auto flex items-center gap-2">
-           <Button onClick={() => setShowDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
+           <Button onClick={() => setAddShowDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
             <Tv className="mr-2 h-4 w-4" />
             Adicionar Série
           </Button>
@@ -282,10 +282,10 @@ export default function Dashboard() {
         
         {shows.length > 0 && (
           <div className="mb-8">
-              <h2 className="text-2xl font-bold tracking-tight mb-4">Próximos Episódios</h2>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Acompanhando Séries</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {shows.map(show => (
-                      <NextEpisodeCard key={show.id} showId={show.id} onHistoryClick={handleShowHistoryClick} />
+                      <NextEpisodeCard key={show.id} show={show} onCardClick={handleShowDetailsClick} />
                   ))}
               </div>
           </div>
@@ -374,14 +374,16 @@ export default function Dashboard() {
         onSave={handleSaveBatchLinks}
       />
       <AddShowDialog
-        open={showDialogOpen}
-        onOpenChange={setShowDialogOpen}
+        open={addShowDialogOpen}
+        onOpenChange={setAddShowDialogOpen}
       />
-       <WatchedHistoryDialog
-        open={historyDialogOpen}
-        onOpenChange={setHistoryDialogOpen}
-        history={historyToShow}
-      />
+      {selectedShowId && (
+        <ShowDetailsDialog
+            open={showDetailsDialogOpen}
+            onOpenChange={setShowDetailsDialogOpen}
+            showId={selectedShowId}
+        />
+      )}
     </div>
   );
 }

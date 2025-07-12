@@ -41,6 +41,7 @@ export type Episode = {
   id: number;
   name: string;
   season_number: number;
+  overview: string;
 };
 
 export type WatchProvider = {
@@ -53,10 +54,13 @@ export interface TMDbShowDetails {
   id: number;
   name: string;
   next_episode_to_air: Episode | null;
+  last_episode_to_air: Episode | null;
   poster_path: string | null;
   backdrop_path: string | null;
   status: string;
-  seasons: { season_number: number }[];
+  seasons: { season_number: number, episode_count: number }[];
+  number_of_episodes: number;
+  number_of_seasons: number;
   'watch/providers'?: {
     results: {
         BR?: {
@@ -67,5 +71,12 @@ export interface TMDbShowDetails {
 }
 
 export interface SeasonDetails {
+    _id: string;
+    air_date: string;
     episodes: Episode[];
+    name: string;
+    overview: string;
+    id: number;
+    poster_path: string;
+    season_number: number;
 }

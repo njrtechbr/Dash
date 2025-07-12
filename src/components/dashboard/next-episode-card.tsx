@@ -2,46 +2,41 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { format, isToday, isTomorrow, parseISO, isPast } from 'date-fns';
+import { format, isToday, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getShowDetails, getSeasonDetails } from '@/services/tmdb';
-import type { TMDbShowDetails, Episode, WatchProvider, WatchedEpisode } from '@/types';
+import type { TMDbShowDetails, Episode, WatchProvider, Show } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '../ui/button';
-import { Trash2, CheckCircle2, Tv, CalendarClock, History } from 'lucide-react';
+import { Tv, CalendarClock, ExternalLink } from 'lucide-react';
 import { useShows } from '@/hooks/use-shows';
 import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Badge } from '../ui/badge';
-
+import { Progress } from '../ui/progress';
 
 interface NextEpisodeCardProps {
-  showId: number;
-  onHistoryClick: (showName: string, episodes: WatchedEpisode[]) => void;
+  show: Show;
+  onCardClick: (showId: number) => void;
 }
 
-export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps) {
+export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
   const [details, setDetails] = React.useState<TMDbShowDetails | null>(null);
-  const [episodesToShow, setEpisodesToShow] = React.useState<Episode[]>([]);
+  const [nextEpisode, setNextEpisode] = React.useState<Episode | null>(null);
   const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const { shows, removeShow, toggleWatchedEpisode } = useShows();
+  const { shows, removeShow } = useShows();
+  const [progress, setProgress] = React.useState(0);
 
-  const show = shows.find(s => s.id === showId);
+  const currentShow = shows.find(s => s.id === show.id);
 
   React.useEffect(() => {
     const fetchDetails = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getShowDetails(showId);
+        const data = await getShowDetails(show.id);
         if (data) {
           setDetails(data);
           
@@ -49,32 +44,20 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
              setWatchProviders(data['watch/providers'].results.BR.flatrate);
           }
 
-          let episodes: Episode[] = [];
-          // Prioritize next episode to air
           if (data.next_episode_to_air) {
-            episodes.push(data.next_episode_to_air);
+            setNextEpisode(data.next_episode_to_air);
+          } else if (data.last_episode_to_air) {
+            setNextEpisode(data.last_episode_to_air);
           }
           
-          const seasonNumberToFetch = data.next_episode_to_air?.season_number || [...data.seasons].sort((a,b) => b.season_number - a.season_number).find(s => s.season_number > 0)?.season_number;
-          
-          if(seasonNumberToFetch && seasonNumberToFetch > 0) {
-             const seasonDetails = await getSeasonDetails(showId, seasonNumberToFetch);
-             if (seasonDetails && seasonDetails.episodes) {
-                if (data.next_episode_to_air) {
-                    // It has future episodes, so get upcoming ones
-                    const upcoming = seasonDetails.episodes
-                        .filter(ep => ep.air_date && !isPast(parseISO(ep.air_date)))
-                        .slice(0, 3);
-                    setEpisodesToShow(upcoming);
-                } else {
-                    // No future episodes, show the last ones from the latest season
-                    const lastReleased = seasonDetails.episodes
-                        .filter(ep => ep.air_date && isPast(parseISO(ep.air_date)))
-                        .sort((a,b) => b.episode_number - a.episode_number)
-                        .slice(0, 3);
-                    setEpisodesToShow(lastReleased.reverse());
-                }
-             }
+          const totalEpisodes = data.seasons
+            .filter(s => s.season_number > 0)
+            .reduce((acc, s) => acc + s.episode_count, 0);
+
+          const watchedCount = currentShow?.watched_episodes?.length || 0;
+
+          if (totalEpisodes > 0) {
+              setProgress((watchedCount / totalEpisodes) * 100);
           }
 
         } else {
@@ -88,44 +71,23 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
       }
     };
     fetchDetails();
-  }, [showId]);
+  }, [show.id, currentShow]);
 
   const formatDate = (dateString: string) => {
     const date = parseISO(dateString);
     if (isToday(date)) return 'Hoje';
-    if (isTomorrow(date)) return 'Amanhã';
     return format(date, "dd/MM/yyyy", { locale: ptBR });
   };
   
-  const nextEpisode = episodesToShow[0];
-  const hasFutureEpisodes = nextEpisode && !isPast(parseISO(nextEpisode.air_date));
-  const isReleasedToday = nextEpisode && isToday(parseISO(nextEpisode.air_date));
-
-  const renderEpisodeAction = (episode: Episode) => {
-    const episodeId = `S${episode.season_number}E${episode.episode_number}`;
-    const isWatched = show?.watched_episodes?.some(e => e.episodeId === episodeId);
-
-    return (
-       <div key={episode.id} className="flex items-center justify-between gap-2 w-full">
-         <div className="flex-grow">
-            <p className="text-sm font-semibold text-primary line-clamp-1">{`T${episode.season_number}:E${episode.episode_number} - ${episode.name}`}</p>
-            <p className="text-xs text-muted-foreground">{`Lançamento: ${formatDate(episode.air_date)}`}</p>
-         </div>
-         <Button variant={isWatched ? 'secondary' : 'default'} size="sm" onClick={() => toggleWatchedEpisode(showId, episodeId, episode.name)} className='shrink-0'>
-            {isWatched ? <CheckCircle2 className="mr-2 h-4 w-4"/> : <Tv className="mr-2 h-4 w-4"/>}
-            {isWatched ? 'Visto' : 'Marcar'}
-        </Button>
-       </div>
-    )
-  }
+  const isReleasedToday = nextEpisode && nextEpisode.air_date && isToday(parseISO(nextEpisode.air_date));
 
   if (isLoading) {
-    return <Skeleton className="h-64 w-full" />;
+    return <Skeleton className="h-[22rem] w-full" />;
   }
 
   if (error || !details) {
     return (
-        <Card className="flex flex-col h-full bg-destructive/10 border-destructive">
+        <Card className="flex flex-col h-[22rem] bg-destructive/10 border-destructive">
             <CardHeader>
                 <CardTitle className="text-destructive text-base">Erro ao Carregar</CardTitle>
             </CardHeader>
@@ -133,8 +95,7 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
                 <p className="text-sm text-destructive">{error || 'Não foi possível encontrar a série.'}</p>
             </CardContent>
             <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={() => removeShow(showId)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
+                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={() => removeShow(show.id)}>
                     Remover
                 </Button>
             </CardFooter>
@@ -144,26 +105,28 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
 
   return (
     <Card className={cn(
-        "flex flex-col h-full overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative",
-        isReleasedToday && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+        "flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group"
     )}>
-       {isReleasedToday && <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-20 animate-pulse">LANÇAMENTO</div>}
+       {isReleasedToday && <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-20 animate-pulse">LANÇAMENTO HOJE</div>}
+       <button onClick={() => onCardClick(details.id)} className='absolute inset-0 z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary rounded-lg'>
+          <span className='sr-only'>Ver detalhes de {details.name}</span>
+       </button>
       
       <CardHeader className="p-0">
-        <div className="relative h-32">
+        <div className="relative h-40">
              {details.poster_path ? (
                  <Image
                     src={`https://image.tmdb.org/t/p/w500${details.backdrop_path || details.poster_path}`}
                     alt={`Pôster de ${details.name}`}
                     fill
                     style={{objectFit: 'cover'}}
-                    className="opacity-80"
+                    className="opacity-80 group-hover:opacity-100 transition-opacity"
                     data-ai-hint="movie poster"
                 />
              ) : (
                 <div className='w-full h-full bg-secondary'/>
              )}
-             <div className='absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent'/>
+             <div className='absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent'/>
              <div className="absolute -bottom-8 left-4 z-10">
                  <Image
                     src={details.poster_path ? `https://image.tmdb.org/t/p/w154${details.poster_path}` : 'https://placehold.co/92x138.png'}
@@ -173,14 +136,6 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
                     className="rounded-md shadow-lg border-2 border-background"
                     data-ai-hint="movie poster"
                 />
-            </div>
-             <div className="absolute top-2 right-2 z-20 flex gap-1">
-                 <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 bg-black/20 hover:text-white hover:bg-black/50" onClick={() => onHistoryClick(details.name, show?.watched_episodes || [])}>
-                    <History className="h-4 w-4" />
-                 </Button>
-                 <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 bg-black/20 hover:text-white hover:bg-black/50" onClick={() => removeShow(details.id)}>
-                    <Trash2 className="h-4 w-4" />
-                </Button>
             </div>
             {watchProviders.length > 0 && (
                 <div className="absolute bottom-2 right-2 z-10 flex gap-1.5 flex-wrap justify-end">
@@ -193,24 +148,39 @@ export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps
             )}
         </div>
       </CardHeader>
-      <CardContent className="p-4 pb-2 pt-10">
+      <CardContent className="p-4 pb-2 pt-10 flex-grow">
         <CardTitle className="text-lg font-bold text-card-foreground line-clamp-1">{details.name}</CardTitle>
-         {episodesToShow.length === 0 && (
-             <p className="text-sm text-muted-foreground mt-2">Sem informações de episódios para esta série.</p>
+         <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+             <Tv className="h-3 w-3" />
+             <span>{details.number_of_seasons} Temporadas</span>
+             <span>•</span>
+             <span>{details.number_of_episodes} Episódios</span>
+         </div>
+
+        {nextEpisode && nextEpisode.air_date ? (
+            <div className='mt-2 space-y-1'>
+                 <p className='font-bold flex items-center gap-1 text-sm text-primary'>
+                    <CalendarClock className='h-4 w-4'/> 
+                    {isPast(parseISO(nextEpisode.air_date)) ? "Último Lançamento" : "Próximo Episódio"}
+                </p>
+                <p className="text-sm font-semibold line-clamp-1">{`T${nextEpisode.season_number}:E${nextEpisode.episode_number} - ${nextEpisode.name}`}</p>
+                <p className="text-xs text-muted-foreground">{`Lançamento: ${formatDate(nextEpisode.air_date)}`}</p>
+            </div>
+        ) : (
+            <p className="text-sm text-muted-foreground mt-2">Sem informações de novos episódios.</p>
         )}
       </CardContent>
-      <CardFooter className="p-4 pt-0 mt-auto flex flex-col items-start gap-3">
-         {episodesToShow.length > 0 && (
-            <>
-                <div className='w-full space-y-2'>
-                    <p className='font-bold flex items-center gap-1 text-sm'>
-                        <CalendarClock className='h-4 w-4'/> 
-                        {hasFutureEpisodes ? "Próximos Lançamentos" : "Últimos Episódios"}
-                    </p>
-                    {episodesToShow.map(renderEpisodeAction)}
+      <CardFooter className="p-4 pt-0 mt-auto flex flex-col items-start gap-2">
+            <div className="w-full">
+                <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-semibold text-muted-foreground">Progresso</span>
+                    <span className="text-xs font-bold text-primary">{Math.round(progress)}%</span>
                 </div>
-            </>
-         )}
+                <Progress value={progress} className="h-2" />
+            </div>
+            <Button onClick={() => onCardClick(details.id)} variant='secondary' className='w-full z-20'>
+                <ExternalLink className='mr-2 h-4 w-4' /> Gerenciar Série
+            </Button>
       </CardFooter>
     </Card>
   );

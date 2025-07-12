@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
-import type { Show, WatchedEpisode } from '@/types';
-import { useToast } from './use-toast';
+import type { Show, WatchedEpisode, Episode } from '@/types';
+import { useToast } from '@/components/ui/use-toast';
 
 const STORAGE_KEY = 'fluxdash-shows';
 
@@ -11,7 +11,8 @@ interface ShowsContextType {
   isLoaded: boolean;
   addShow: (show: Show) => void;
   removeShow: (showId: number) => void;
-  toggleWatchedEpisode: (showId: number, episodeId: string, episodeName: string) => void;
+  toggleWatchedEpisode: (showId: number, episode: Episode, isWatched: boolean) => void;
+  toggleSeasonWatched: (showId: number, episodes: Episode[], markAsWatched: boolean) => void;
 }
 
 const ShowsContext = createContext<ShowsContextType | undefined>(undefined);
@@ -36,7 +37,8 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
   const updateLocalStorage = (updatedShows: Show[]) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedShows));
-    } catch (error) {
+    } catch (error)
+      {
       console.error('Failed to save shows to local storage:', error);
     }
   };
@@ -78,22 +80,23 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const toggleWatchedEpisode = useCallback((showId: number, episodeId: string, episodeName: string) => {
-    let isWatched: boolean | undefined;
+ const toggleWatchedEpisode = useCallback((showId: number, episode: Episode, isWatched: boolean) => {
+    const episodeId = `S${episode.season_number}E${episode.episode_number}`;
     
     setShows(prevShows => {
       const updatedShows = prevShows.map(show => {
         if (show.id === showId) {
           const watchedEpisodes = show.watched_episodes || [];
-          const wasWatched = watchedEpisodes.some(e => e.episodeId === episodeId);
-          isWatched = !wasWatched;
-          
           let newWatchedEpisodes: WatchedEpisode[];
 
-          if (wasWatched) {
-            newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
+          if (isWatched) {
+             // Avoid adding duplicates
+            if (watchedEpisodes.some(e => e.episodeId === episodeId)) {
+                return show;
+            }
+            newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName: episode.name, watchedAt: new Date().toISOString() }];
           } else {
-            newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName, watchedAt: new Date().toISOString() }];
+            newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
           }
           
           return { ...show, watched_episodes: newWatchedEpisodes };
@@ -103,22 +106,40 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
       updateLocalStorage(updatedShows);
       return updatedShows;
     });
+  }, []);
 
-    if (isWatched === true) {
-        toast({
-            title: 'Episódio Assistido!',
-            description: `Você marcou "${episodeName}" como assistido.`
+  const toggleSeasonWatched = useCallback((showId: number, seasonEpisodes: Episode[], markAsWatched: boolean) => {
+    setShows(prevShows => {
+        const updatedShows = prevShows.map(show => {
+            if (show.id === showId) {
+                let watchedEpisodes = show.watched_episodes || [];
+
+                if (markAsWatched) {
+                    const episodesToAdd = seasonEpisodes
+                        .map(ep => ({
+                            episodeId: `S${ep.season_number}E${ep.episode_number}`,
+                            episodeName: ep.name,
+                            watchedAt: new Date().toISOString()
+                        }))
+                        .filter(epToAdd => !watchedEpisodes.some(existingEp => existingEp.episodeId === epToAdd.episodeId));
+                    
+                    watchedEpisodes = [...watchedEpisodes, ...episodesToAdd];
+                } else {
+                    const seasonEpisodeIds = new Set(seasonEpisodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
+                    watchedEpisodes = watchedEpisodes.filter(ep => !seasonEpisodeIds.has(ep.episodeId));
+                }
+
+                return { ...show, watched_episodes: watchedEpisodes };
+            }
+            return show;
         });
-    } else if (isWatched === false) {
-        toast({
-            title: 'Episódio Desmarcado',
-            description: `O episódio "${episodeName}" foi removido do seu histórico.`
-        });
-    }
-  }, [toast]);
+        updateLocalStorage(updatedShows);
+        return updatedShows;
+    });
+  }, []);
 
   return (
-    <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow, toggleWatchedEpisode }}>
+    <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow, toggleWatchedEpisode, toggleSeasonWatched }}>
       {children}
     </ShowsContext.Provider>
   );

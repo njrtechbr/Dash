@@ -4,7 +4,9 @@ import { ShowsProvider } from "@/hooks/use-shows";
 export default function Home() {
   return (
     <ShowsProvider>
-      <Dashboard />
+      <main>
+        <Dashboard />
+      </main>
     </ShowsProvider>
   );
 }
