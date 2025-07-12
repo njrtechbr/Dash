@@ -38,6 +38,15 @@ export const useLinks = () => {
     });
   }, []);
 
+  const addMultipleLinks = useCallback((newLinks: Omit<LinkItem, 'id'>[]) => {
+    setLinks((prevLinks) => {
+      const linksToAdd = newLinks.map(link => ({...link, id: crypto.randomUUID()}));
+      const updatedLinks = [...prevLinks, ...linksToAdd];
+      updateLocalStorage(updatedLinks);
+      return updatedLinks;
+    });
+  }, []);
+
   const updateLink = useCallback((id: string, updatedFields: Partial<Omit<LinkItem, 'id'>>) => {
     setLinks((prevLinks) => {
       const updatedLinks = prevLinks.map((link) =>
@@ -84,5 +93,5 @@ export const useLinks = () => {
     });
   }, []);
 
-  return { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks };
+  return { links, isLoaded, addLink, addMultipleLinks, updateLink, deleteLink, reorderLinks };
 };

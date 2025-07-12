@@ -1,34 +1,54 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
 import { LinkDialog } from './link-dialog';
+import { BatchLinkDialog } from './batch-link-dialog'; // Novo componente
 import type { LinkItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useWeather } from '@/hooks/use-weather'; // Novo hook
+import { useDollarRate } from '@/hooks/use-dollar-rate'; // Novo hook
 
 export default function Dashboard() {
-  const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks } = useLinks();
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
+  const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
   const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
 
   const [draggedItem, setDraggedItem] = React.useState<LinkItem | null>(null);
   const [dragOverItem, setDragOverItem] = React.useState<LinkItem | null>(null);
 
   const { toast } = useToast();
+  const { weather, weatherError } = useWeather();
+  const { dollarRate, dollarError } = useDollarRate();
+  const [currentDate, setCurrentDate] = React.useState('');
+
+  React.useEffect(() => {
+    const date = new Date();
+    const formattedDate = new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'full',
+    }).format(date);
+    setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
+  }, []);
 
   const handleAddClick = () => {
     setLinkToEdit(null);
-    setDialogOpen(true);
+    setLinkDialogOpen(true);
+  };
+  
+  const handleBatchAddClick = () => {
+    setBatchDialogOpen(true);
   };
 
   const handleEditClick = (link: LinkItem) => {
     setLinkToEdit(link);
-    setDialogOpen(true);
+    setLinkDialogOpen(true);
   };
 
   const handleSaveLink = (data: Omit<LinkItem, 'id'>, id?: string) => {
@@ -39,6 +59,11 @@ export default function Dashboard() {
       addLink(data);
       toast({ title: "Link Adicionado", description: "Seu novo link foi adicionado ao painel." });
     }
+  };
+
+  const handleSaveBatchLinks = (links: Omit<LinkItem, 'id'>[]) => {
+    addMultipleLinks(links);
+    toast({ title: "Links Adicionados", description: `${links.length} novos links foram adicionados ao painel.` });
   };
   
   const handleDeleteLink = (id: string) => {
@@ -88,6 +113,10 @@ export default function Dashboard() {
       <header className="sticky top-0 z-30 flex h-[60px] items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-8">
         <h1 className="text-xl font-bold tracking-tight text-primary">FluxDash</h1>
         <div className="ml-auto flex items-center gap-2">
+           <Button onClick={handleBatchAddClick} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
+            <Layers className="mr-2 h-4 w-4" />
+            Adicionar em Lote
+          </Button>
           <Button onClick={handleAddClick} className="shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-shadow">
             <Plus className="mr-2 h-4 w-4" />
             Adicionar Link
@@ -96,6 +125,45 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 p-4 md:p-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Dólar (USD)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {dollarError && <p className="text-xs text-destructive">{dollarError}</p>}
+                    {!dollarRate && !dollarError && <Skeleton className="h-8 w-24" />}
+                    {dollarRate && <div className="text-2xl font-bold">R$ {dollarRate}</div>}
+                    <p className="text-xs text-muted-foreground">Cotação de compra atual</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Clima</CardTitle>
+                    <Thermometer className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {weatherError && <p className="text-xs text-destructive">{weatherError}</p>}
+                    {!weather && !weatherError && <Skeleton className="h-8 w-32" />}
+                    {weather && <div className="text-2xl font-bold">{weather.temp}°C em {weather.city}</div>}
+                    <p className="text-xs text-muted-foreground">{weather?.description || 'Condição do tempo local'}</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Data</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                     {!currentDate && <Skeleton className="h-8 w-48" />}
+                     {currentDate && <div className="text-2xl font-bold">{currentDate}</div>}
+                    <p className="text-xs text-muted-foreground">Data e dia da semana</p>
+                </CardContent>
+            </Card>
+        </div>
+
+
         {!isLoaded && (
             <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -167,10 +235,15 @@ export default function Dashboard() {
       </main>
 
       <LinkDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
         onSave={handleSaveLink}
         linkToEdit={linkToEdit}
+      />
+      <BatchLinkDialog
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        onSave={handleSaveBatchLinks}
       />
     </div>
   );
