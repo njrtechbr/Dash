@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro, TrendingUp, ArrowUp, ArrowDown, Activity, Landmark, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
@@ -15,18 +15,52 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWeather } from '@/hooks/use-weather';
 import { useFinancialData } from '@/hooks/use-financial-data';
 import { useTime } from '@/hooks/use-time';
+import { cn } from '@/lib/utils';
 
-const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading }: { title: string; value?: string | null; icon: React.ElementType, footer: string, error?: string | null, isLoading: boolean }) => (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
+
+interface InfoCardProps {
+  title: string;
+  value?: string | null;
+  icon: React.ElementType;
+  footer?: string | null;
+  error?: string | null;
+  isLoading: boolean;
+  change?: string | null;
+  isPositive?: boolean | null;
+  prefix?: string;
+}
+
+const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading, change, isPositive, prefix }: InfoCardProps) => (
+    <Card className="shadow-sm hover:shadow-md transition-shadow duration-300 transform hover:-translate-y-1">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
             <Icon className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-            {isLoading && <Skeleton className="h-8 w-24" />}
-            {error && !value && <p className="text-xs text-destructive">{error}</p>}
-            {value && !isLoading && <div className="text-2xl font-bold">{value}</div>}
-            <p className="text-xs text-muted-foreground">{footer}</p>
+            {isLoading ? (
+              <Skeleton className="h-8 w-3/4" />
+            ) : error && !value ? (
+              <p className="text-sm text-destructive">{error}</p>
+            ) : value ? (
+              <div className="text-2xl font-bold">{prefix}{value}</div>
+            ) : null}
+
+            {isLoading ? (
+                <Skeleton className="h-4 w-1/2 mt-1" />
+            ) : change !== null && change !== undefined ? (
+                 <div className="flex items-center text-xs text-muted-foreground">
+                    <span className={cn(
+                        "flex items-center gap-1 font-semibold",
+                        isPositive ? "text-green-600" : "text-red-600"
+                    )}>
+                        {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                        {change}
+                    </span>
+                    <span className="ml-2 hidden sm:inline-block">{footer}</span>
+                </div>
+            ) : footer ? (
+                <p className="text-xs text-muted-foreground">{footer}</p>
+            ) : null }
         </CardContent>
     </Card>
 );
@@ -118,7 +152,10 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <header className="sticky top-0 z-30 flex h-[60px] items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-8">
-        <h1 className="text-xl font-bold tracking-tight text-primary">FluxDash</h1>
+        <h1 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
+          <TrendingUp className="h-6 w-6" />
+          FluxDash
+        </h1>
         <div className="ml-auto flex items-center gap-2">
            <Button onClick={handleBatchAddClick} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
             <Layers className="mr-2 h-4 w-4" />
@@ -132,28 +169,67 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 mb-8">
             <InfoCard 
-                title="Dólar (USD)"
-                value={financialData['USD-BRL'] ? `R$ ${financialData['USD-BRL'].value}` : null}
+                title="Dólar"
+                prefix="R$ "
+                value={financialData['USD-BRL']?.value}
+                change={financialData['USD-BRL']?.change}
+                isPositive={financialData['USD-BRL']?.isPositive}
                 icon={DollarSign}
-                footer="Cotação de compra"
+                footer="Comercial"
                 error={financialError}
                 isLoading={isFinancialLoading}
             />
             <InfoCard 
-                title="Euro (EUR)"
-                value={financialData['EUR-BRL'] ? `R$ ${financialData['EUR-BRL'].value}` : null}
+                title="Euro"
+                prefix="R$ "
+                value={financialData['EUR-BRL']?.value}
+                change={financialData['EUR-BRL']?.change}
+                isPositive={financialData['EUR-BRL']?.isPositive}
                 icon={Euro}
-                footer="Cotação de compra"
+                footer="Comercial"
                 error={financialError}
                 isLoading={isFinancialLoading}
             />
             <InfoCard 
-                title="Bitcoin (BTC)"
-                value={financialData['BTC-BRL'] ? `R$ ${financialData['BTC-BRL'].value}` : null}
+                title="Bitcoin"
+                prefix="R$ "
+                value={financialData['BTC-BRL']?.value}
+                change={financialData['BTC-BRL']?.change}
+                isPositive={financialData['BTC-BRL']?.isPositive}
                 icon={Bitcoin}
-                footer="Cotação de compra"
+                footer="Cotação"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+             <InfoCard
+                title="Ibovespa"
+                value={financialData['^BVSP']?.value}
+                change={financialData['^BVSP']?.change}
+                isPositive={financialData['^BVSP']?.isPositive}
+                icon={Landmark}
+                footer="Pontos"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+            <InfoCard
+                title="NASDAQ"
+                value={financialData['IXIC']?.value}
+                change={financialData['IXIC']?.change}
+                isPositive={financialData['IXIC']?.isPositive}
+                icon={Activity}
+                footer="Pontos"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+            <InfoCard
+                title="S&P 500"
+                value={financialData['GSPC']?.value}
+                change={financialData['GSPC']?.change}
+                isPositive={financialData['GSPC']?.isPositive}
+                icon={Globe}
+                footer="Pontos"
                 error={financialError}
                 isLoading={isFinancialLoading}
             />
@@ -161,11 +237,11 @@ export default function Dashboard() {
                 title="Clima"
                 value={weather ? `${weather.temp}°C` : null}
                 icon={Thermometer}
-                footer={weather ? `Em ${weather.city}` : 'Condição do tempo local'}
+                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
                 error={weatherError}
                 isLoading={isWeatherLoading}
             />
-             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-4">
+             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
                     <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -173,7 +249,7 @@ export default function Dashboard() {
                 <CardContent>
                      {isWeatherLoading && <Skeleton className="h-8 w-full" />}
                      {!isWeatherLoading && (
-                        <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline justify-between flex-wrap gap-2">
                              <div className="text-2xl font-bold">{date}</div>
                              <div className="text-2xl font-mono font-bold flex items-center gap-2">
                                 <Clock className="h-5 w-5 text-muted-foreground"/>

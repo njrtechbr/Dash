@@ -2,29 +2,37 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-// API Pública: https://docs.awesomeapi.com.br/api-de-moedas
-const API_URL = 'https://economia.awesomeapi.com.br/json/last/';
+// API Pública: https://docs.awesomeapi.com.br/api-de-moedas e https://brapi.dev/docs
+const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/json/last/';
+const BRAPI_API_URL = 'https://brapi.dev/api/quote/';
+
 const CODES = ['USD-BRL', 'EUR-BRL', 'BTC-BRL'];
+const STOCKS = ['^BVSP', 'IXIC', 'GSPC']; // IBOVESPA, NASDAQ, S&P 500
 
 interface FinancialInfo {
     value: string;
     name: string;
+    change: string;
+    isPositive: boolean;
 }
 
 const CACHE_DURATION = 300000; // 5 minutos
 
-const formatValue = (code: string, data: any): string => {
+const formatCurrencyValue = (code: string, data: any): string => {
     switch (code) {
         case 'USD-BRL':
         case 'EUR-BRL':
             return parseFloat(data.bid).toFixed(2);
         case 'BTC-BRL':
-             return parseFloat(data.bid).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             return (parseFloat(data.bid) * 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         default:
             return data.bid ? parseFloat(data.bid).toFixed(2) : 'N/A';
     }
 }
 
+const formatStockValue = (data: any): string => {
+    return data.regularMarketPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 export const useFinancialData = () => {
     const [financialData, setFinancialData] = useState<Record<string, FinancialInfo>>({});
@@ -33,7 +41,6 @@ export const useFinancialData = () => {
     
     const fetchData = useCallback(async () => {
         setIsLoading(true);
-        const codesString = CODES.join(',');
 
         try {
             const lastFetch = localStorage.getItem('financialLastFetch');
@@ -41,34 +48,47 @@ export const useFinancialData = () => {
             
             if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
                 const parsedCache = JSON.parse(cachedData);
-                if(CODES.every(code => parsedCache[code])) {
-                  setFinancialData(parsedCache);
-                  setFinancialError(null);
-                  setIsLoading(false);
-                  return;
+                 if (CODES.every(code => parsedCache[code]) && STOCKS.every(stock => parsedCache[stock])) {
+                    setFinancialData(parsedCache);
+                    setFinancialError(null);
+                    setIsLoading(false);
+                    return;
                 }
             }
+            
+            // Fetch Currencies
+            const currencyResponse = await fetch(`${AWESOME_API_URL}${CODES.join(',')}`);
+            if (!currencyResponse.ok) throw new Error('Falha ao buscar cotações de moedas.');
+            const currencyData = await currencyResponse.json();
 
-            const response = await fetch(`${API_URL}${codesString}`);
-            if (!response.ok) {
-                const errorText = await response.text();
-                if (response.status === 404 && errorText.includes('Coin not found')) {
-                    throw new Error('Uma ou mais moedas não foram encontradas.');
-                }
-                throw new Error('Falha ao buscar dados financeiros.');
-            }
-            
-            const data = await response.json();
-            
+            // Fetch Stocks
+            const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
+            if (!stockResponse.ok) throw new Error('Falha ao buscar dados de ações.');
+            const stockData = await stockResponse.json();
+
             const formattedData: Record<string, FinancialInfo> = {};
             
-            Object.keys(data).forEach(key => {
-                const itemData = data[key];
+            // Process Currencies
+            Object.keys(currencyData).forEach(key => {
+                const itemData = currencyData[key];
                 const code = itemData.code + '-' + itemData.codein;
-
+                const change = parseFloat(itemData.pctChange);
                 formattedData[code] = {
-                    value: formatValue(code, itemData),
-                    name: itemData.name,
+                    value: formatCurrencyValue(code, itemData),
+                    name: itemData.name.split('/')[0],
+                    change: `${change.toFixed(2)}%`,
+                    isPositive: change >= 0,
+                };
+            });
+
+            // Process Stocks
+            stockData.results.forEach((item: any) => {
+                const change = item.regularMarketChangePercent;
+                formattedData[item.symbol] = {
+                    value: formatStockValue(item),
+                    name: item.longName,
+                    change: `${change.toFixed(2)}%`,
+                    isPositive: change >= 0,
                 };
             });
             
