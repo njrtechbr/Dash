@@ -87,9 +87,7 @@ export const useFinancialData = () => {
         // Fetch Stocks
         try {
             const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
-            if (!stockResponse.ok) {
-                 console.error('Falha ao buscar dados de ações.');
-            } else {
+            if (stockResponse.ok) {
                 const stockData = await stockResponse.json();
                  if (stockData.results) {
                     stockData.results.forEach((item: any) => {
@@ -104,7 +102,7 @@ export const useFinancialData = () => {
                 }
             }
         } catch(error) {
-             console.error("Stock fetch error:", error);
+             // Silently fail and rely on cache
         } finally {
              // Use cache for stocks if fetch failed but cache exists
              if(cachedData) {
