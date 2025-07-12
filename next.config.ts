@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     TMDB_API_KEY: 'e8d22c755d73bec02627838a3f4a7909',
+    GOOGLE_API_KEY: 'AIzaSyC7KHunXJgj8LXL0UkxGil8R_Vp9h_uLBw',
     NEXT_PUBLIC_FIREBASE_API_KEY: 'AIzaSyC7KHunXJgj8LXL0UkxGil8R_Vp9h_uLBw',
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'fluxdash-4fmx1.firebaseapp.com',
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'fluxdash-4fmx1',
