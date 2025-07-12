@@ -38,6 +38,7 @@ const WEATHER_CODES: { [key: number]: string } = {
 export const useWeather = () => {
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [weatherError, setWeatherError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchWeather = (lat: number, lon: number, city: string) => {
@@ -60,17 +61,17 @@ export const useWeather = () => {
                     if (error instanceof Error) setWeatherError(error.message);
                     else setWeatherError('Erro ao buscar clima.');
                     console.error(error);
-                });
+                })
+                .finally(() => setIsLoading(false));
         }
 
         const getLocation = () => {
+            setIsLoading(true);
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const { latitude, longitude } = position.coords;
-                        // Usar API de geocodificação reversa para obter nome da cidade
-                        fetch(`${GEO_API_URL}a&latitude=${latitude}&longitude=${longitude}`)
-                          .then(res => fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`))
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
                           .then(res => res.json())
                           .then(geoData => {
                               const city = geoData.address.city || geoData.address.town || geoData.address.village || 'sua localização';
@@ -83,16 +84,18 @@ export const useWeather = () => {
                     (error) => {
                         setWeatherError('Não foi possível obter a localização.');
                         console.error(error);
+                        setIsLoading(false);
                     },
                     { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
                 );
             } else {
                 setWeatherError('Geolocalização não é suportada por este navegador.');
+                setIsLoading(false);
             }
         };
 
         getLocation();
     }, []);
 
-    return { weather, weatherError };
+    return { weather, weatherError, isLoading };
 };

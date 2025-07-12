@@ -1,19 +1,35 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, TrendingUp, CandlestickChart, Bitcoin, Euro } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
 import { LinkDialog } from './link-dialog';
-import { BatchLinkDialog } from './batch-link-dialog'; // Novo componente
+import { BatchLinkDialog } from './batch-link-dialog';
 import type { LinkItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useWeather } from '@/hooks/use-weather'; // Novo hook
-import { useDollarRate } from '@/hooks/use-dollar-rate'; // Novo hook
+import { useWeather } from '@/hooks/use-weather';
+import { useFinancialData } from '@/hooks/use-financial-data';
+import { useTime } from '@/hooks/use-time';
+
+const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading }: { title: string; value?: string | null; icon: React.ElementType, footer: string, error?: string | null, isLoading: boolean }) => (
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+            {isLoading && <Skeleton className="h-8 w-24" />}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            {value && !isLoading && !error && <div className="text-2xl font-bold">{value}</div>}
+            <p className="text-xs text-muted-foreground">{footer}</p>
+        </CardContent>
+    </Card>
+);
 
 export default function Dashboard() {
   const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
@@ -25,17 +41,9 @@ export default function Dashboard() {
   const [dragOverItem, setDragOverItem] = React.useState<LinkItem | null>(null);
 
   const { toast } = useToast();
-  const { weather, weatherError } = useWeather();
-  const { dollarRate, dollarError } = useDollarRate();
-  const [currentDate, setCurrentDate] = React.useState('');
-
-  React.useEffect(() => {
-    const date = new Date();
-    const formattedDate = new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'full',
-    }).format(date);
-    setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
-  }, []);
+  const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
+  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData(['USD-BRL', 'EUR-BRL', 'BTC-BRL', 'IBOV']);
+  const { time, date } = useTime();
 
   const handleAddClick = () => {
     setLinkToEdit(null);
@@ -88,7 +96,6 @@ export default function Dashboard() {
     if (!draggedItem || draggedItem.id === targetLink.id) {
         return;
     }
-
     reorderLinks(draggedItem.id, targetLink.id, targetLink.group);
   };
   
@@ -125,40 +132,64 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            <Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+            <InfoCard 
+                title="Dólar (USD)"
+                value={financialData.USDBRL ? `R$ ${financialData.USDBRL.value}` : null}
+                icon={DollarSign}
+                footer="Cotação de compra"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+            <InfoCard 
+                title="Euro (EUR)"
+                value={financialData.EURBRL ? `R$ ${financialData.EURBRL.value}` : null}
+                icon={Euro}
+                footer="Cotação de compra"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+            <InfoCard 
+                title="Bitcoin (BTC)"
+                value={financialData.BTCBRL ? `R$ ${financialData.BTCBRL.value}` : null}
+                icon={Bitcoin}
+                footer="Cotação de compra"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+             <InfoCard 
+                title="Ibovespa"
+                value={financialData.IBOV ? `${financialData.IBOV.value}%` : null}
+                icon={TrendingUp}
+                footer="Variação do dia"
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+            <InfoCard
+                title="Clima"
+                value={weather ? `${weather.temp}°C` : null}
+                icon={Thermometer}
+                footer={weather ? `Em ${weather.city}` : 'Condição do tempo local'}
+                error={weatherError}
+                isLoading={isWeatherLoading}
+            />
+            <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-3 xl:col-span-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Dólar (USD)</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    {dollarError && <p className="text-xs text-destructive">{dollarError}</p>}
-                    {!dollarRate && !dollarError && <Skeleton className="h-8 w-24" />}
-                    {dollarRate && <div className="text-2xl font-bold">R$ {dollarRate}</div>}
-                    <p className="text-xs text-muted-foreground">Cotação de compra atual</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Clima</CardTitle>
-                    <Thermometer className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    {weatherError && <p className="text-xs text-destructive">{weatherError}</p>}
-                    {!weather && !weatherError && <Skeleton className="h-8 w-32" />}
-                    {weather && <div className="text-2xl font-bold">{weather.temp}°C em {weather.city}</div>}
-                    <p className="text-xs text-muted-foreground">{weather?.description || 'Condição do tempo local'}</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Data</CardTitle>
+                    <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                     {!currentDate && <Skeleton className="h-8 w-48" />}
-                     {currentDate && <div className="text-2xl font-bold">{currentDate}</div>}
-                    <p className="text-xs text-muted-foreground">Data e dia da semana</p>
+                     {isWeatherLoading && <Skeleton className="h-8 w-full" />}
+                     {!isWeatherLoading && (
+                        <div className="flex items-baseline justify-between">
+                             <div className="text-2xl font-bold">{date}</div>
+                             <div className="text-2xl font-mono font-bold flex items-center gap-2">
+                                <Clock className="h-5 w-5 text-muted-foreground"/>
+                                {time}
+                             </div>
+                        </div>
+                     )}
+                    <p className="text-xs text-muted-foreground">Fuso horário local</p>
                 </CardContent>
             </Card>
         </div>

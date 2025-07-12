@@ -45,7 +45,7 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
     >
       <Card
         className={cn(
-            'h-32 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1.5 hover:border-primary/50',
+            'h-32 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-105 hover:-translate-y-1 hover:border-primary/50',
             isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
             'bg-card shadow-md hover:shadow-primary/20'
         )}
