@@ -100,8 +100,12 @@ export const useFinancialData = () => {
                         };
                     });
                 }
+            } else if (stockResponse.status === 401) {
+                console.warn("Stock fetch error: 401 Unauthorized. API may require a token.");
+                if (!currentError) currentError = "Não foi possível carregar dados de ações (não autorizado)."
             }
         } catch(error) {
+             console.error("Stock fetch error:", error);
              // Silently fail and rely on cache
         } finally {
              // Use cache for stocks if fetch failed but cache exists
