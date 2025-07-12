@@ -87,28 +87,37 @@ export const useFinancialData = () => {
         // Fetch Stocks
         try {
             const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
-            if (!stockResponse.ok) throw new Error('Falha ao buscar dados de ações.');
-            const stockData = await stockResponse.json();
-            stockData.results.forEach((item: any) => {
-                const change = item.regularMarketChangePercent;
-                finalData[item.symbol] = {
-                    value: formatStockValue(item),
-                    name: item.longName || item.symbol,
-                    change: `${change.toFixed(2)}%`,
-                    isPositive: change >= 0,
-                };
-            });
+            if (!stockResponse.ok) {
+                 console.error('Falha ao buscar dados de ações.');
+            } else {
+                const stockData = await stockResponse.json();
+                 if (stockData.results) {
+                    stockData.results.forEach((item: any) => {
+                        const change = item.regularMarketChangePercent;
+                        finalData[item.symbol] = {
+                            value: formatStockValue(item),
+                            name: item.longName || item.symbol,
+                            change: `${change.toFixed(2)}%`,
+                            isPositive: change >= 0,
+                        };
+                    });
+                }
+            }
         } catch(error) {
              console.error("Stock fetch error:", error);
-             // Não definimos `currentError` aqui para não mostrar erro ao usuário se a API de ações falhar.
-             // Apenas logamos e usamos o cache.
+        } finally {
+             // Use cache for stocks if fetch failed but cache exists
              if(cachedData) {
                 const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
                 STOCKS.forEach(stock => {
-                    if(parsedCache[stock]) finalData[stock] = parsedCache[stock];
+                    // Only use cache if data wasn't successfully fetched in this run
+                    if(parsedCache[stock] && !finalData[stock]) {
+                        finalData[stock] = parsedCache[stock];
+                    }
                 })
              }
         }
+
 
         if (Object.keys(finalData).length > 0) {
              setFinancialData(finalData);
@@ -117,6 +126,7 @@ export const useFinancialData = () => {
         }
 
         setFinancialError(currentError);
+        setIsLoading(false);
 
     }, []);
 
