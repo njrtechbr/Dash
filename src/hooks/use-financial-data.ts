@@ -19,7 +19,6 @@ const formatValue = (code: string, data: any): string => {
             return parseFloat(data.bid).toFixed(2);
         case 'BTC-BRL':
              return parseFloat(data.bid).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        // O endpoint IBOV foi removido da API pública, então a lógica foi removida.
         default:
             return data.bid ? parseFloat(data.bid).toFixed(2) : 'N/A';
     }
@@ -34,7 +33,6 @@ export const useFinancialData = (codes: string[]) => {
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
-        // Não busca se não houver códigos
         if (!codesString) {
             setIsLoading(false);
             return;
@@ -46,7 +44,6 @@ export const useFinancialData = (codes: string[]) => {
             
             if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
                 const parsedCache = JSON.parse(cachedData);
-                // Garante que o cache só é usado se contiver os dados esperados
                 if(codes.every(code => parsedCache[code])) {
                   setFinancialData(parsedCache);
                   setIsLoading(false);
@@ -57,7 +54,6 @@ export const useFinancialData = (codes: string[]) => {
             const response = await fetch(`${API_URL}${codesString}`);
             if (!response.ok) {
                 const errorText = await response.text();
-                // A API retorna 404 se um dos códigos for inválido (como IBOV)
                 if (response.status === 404 && errorText.includes('Coin not found')) {
                     throw new Error('Uma ou mais moedas não foram encontradas.');
                 }
@@ -79,7 +75,7 @@ export const useFinancialData = (codes: string[]) => {
             });
             
             setFinancialData(formattedData);
-localStorage.setItem('financialData', JSON.stringify(formattedData));
+            localStorage.setItem('financialData', JSON.stringify(formattedData));
             localStorage.setItem('financialLastFetch', new Date().getTime().toString());
             setFinancialError(null);
 
@@ -89,7 +85,6 @@ localStorage.setItem('financialData', JSON.stringify(formattedData));
             } else {
                 setFinancialError('Ocorreu um erro desconhecido.');
             }
-            // Tenta carregar dados do cache em caso de erro de rede
             const cachedData = localStorage.getItem('financialData');
             if (cachedData) {
                 setFinancialData(JSON.parse(cachedData));
