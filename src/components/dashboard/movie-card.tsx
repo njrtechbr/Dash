@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { getMovieDetails } from '@/services/tmdb';
 import type { TMDbMovieDetails, Movie, WatchProvider } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,40 +19,12 @@ import {
 
 interface MovieCardProps {
   movie: Movie;
-  onCardClick: (movieId: number) => void;
 }
 
-export function MovieCard({ movie, onCardClick }: MovieCardProps) {
-  const [details, setDetails] = React.useState<TMDbMovieDetails | null>(null);
-  const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const { removeMovie, toggleMovieWatched } = useMovies();
-
-  React.useEffect(() => {
-    const fetchDetails = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getMovieDetails(movie.id);
-        if (data) {
-          setDetails(data);
-          
-          if (data['watch/providers']?.results?.BR?.flatrate) {
-             setWatchProviders(data['watch/providers'].results.BR.flatrate);
-          }
-        } else {
-          setError('Não foi possível carregar os detalhes do filme.');
-        }
-      } catch (err) {
-        setError('Ocorreu um erro ao buscar os dados.');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDetails();
-  }, [movie.id]);
+export function MovieCard({ movie }: MovieCardProps) {
+  const { removeMovie, toggleMovieWatched, details: allDetails, handleMovieDetailsClick } = useMovies();
+  
+  const details = allDetails[movie.id];
 
   const formatRuntime = (minutes: number | null) => {
     if (!minutes) return '';
@@ -62,34 +33,17 @@ export function MovieCard({ movie, onCardClick }: MovieCardProps) {
     return `${h}h ${m}m`;
   };
 
-  const releaseYear = details?.release_date ? new Date(details.release_date).getFullYear() : '';
-  
   const handleButtonClick = (e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
   }
-
-  if (isLoading) {
+  
+  if (!details) {
     return <Skeleton className="h-[20rem] w-full bg-muted/50" />;
   }
-
-  if (error || !details) {
-    return (
-        <Card className="flex flex-col h-[20rem] bg-destructive/20 border-destructive text-destructive-foreground">
-            <CardHeader>
-                <CardTitle className="text-base line-clamp-1">{movie.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm">{error || 'Não foi possível encontrar o filme.'}</p>
-            </CardContent>
-            <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive-foreground hover:bg-destructive/20" onClick={(e) => handleButtonClick(e, () => removeMovie(movie.id))}>
-                    Remover
-                </Button>
-            </CardFooter>
-        </Card>
-    );
-  }
+  
+  const releaseYear = details.release_date ? new Date(details.release_date).getFullYear() : '';
+  const watchProviders = details['watch/providers']?.results?.BR?.flatrate || [];
 
   return (
     <Card 
@@ -97,7 +51,7 @@ export function MovieCard({ movie, onCardClick }: MovieCardProps) {
             "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer bg-card/80 backdrop-blur-sm",
             movie.watched && "border-green-500/50"
         )}
-        onClick={() => onCardClick(movie.id)}
+        onClick={() => handleMovieDetailsClick(movie.id)}
     >
       {movie.watched && (
         <div className='absolute inset-0 bg-black/60 z-10 flex items-center justify-center'>

@@ -106,8 +106,8 @@ export default function Dashboard() {
 
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
   const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
-  const { shows, handleShowDetailsClick } = useShows();
-  const { movies, handleMovieDetailsClick } = useMovies();
+  const { shows, isLoaded: areShowsLoaded } = useShows();
+  const { movies, isLoaded: areMoviesLoaded } = useMovies();
   const { settings, isLoaded: areSettingsLoaded } = useDashboardSettings();
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, link: LinkItem) => {
@@ -229,24 +229,32 @@ export default function Dashboard() {
             )}
         </div>
         
-        {shows.length > 0 && (
+        {(!areShowsLoaded || shows.length > 0) && (
           <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90">Acompanhando Séries</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {shows.map(show => (
-                      <NextEpisodeCard key={show.id} show={show} onCardClick={handleShowDetailsClick} />
-                  ))}
+                  {!areShowsLoaded ? (
+                      Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[22rem] w-full bg-muted/50" />)
+                  ) : (
+                      shows.map(show => (
+                          <NextEpisodeCard key={show.id} show={show} />
+                      ))
+                  )}
               </div>
           </div>
         )}
         
-        {movies.length > 0 && (
+        {(!areMoviesLoaded || movies.length > 0) && (
           <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90">Filmes para Assistir</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                  {movies.map(movie => (
-                      <MovieCard key={movie.id} movie={movie} onCardClick={handleMovieDetailsClick} />
-                  ))}
+                  {!areMoviesLoaded ? (
+                      Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[20rem] w-full bg-muted/50" />)
+                  ) : (
+                      movies.map(movie => (
+                          <MovieCard key={movie.id} movie={movie} />
+                      ))
+                  )}
               </div>
           </div>
         )}

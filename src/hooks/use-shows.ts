@@ -2,11 +2,13 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Show, WatchedEpisode, Episode } from '@/types';
+import type { Show, WatchedEpisode, Episode, TMDbShowDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { getShowDetails } from '@/services/tmdb';
 
 interface ShowsState {
   shows: Show[];
+  details: Record<number, TMDbShowDetails>;
   isLoaded: boolean;
   showDetailsId: number | null;
   isShowDetailsOpen: boolean;
@@ -16,17 +18,44 @@ interface ShowsState {
   toggleSeasonWatched: (showId: number, episodes: Episode[], markAsWatched: boolean) => void;
   handleShowDetailsClick: (showId: number) => void;
   setShowDetailsOpen: (isOpen: boolean) => void;
+  fetchMissingDetails: (shows: Show[]) => Promise<void>;
 }
 
 export const useShows = create<ShowsState>()(
   persist(
     (set, get) => ({
       shows: [],
+      details: {},
       isLoaded: false,
       showDetailsId: null,
       isShowDetailsOpen: false,
 
-      addShow: (show) => {
+      fetchMissingDetails: async (shows) => {
+        const state = get();
+        const showsToFetch = shows.filter(show => !state.details[show.id]);
+
+        if (showsToFetch.length === 0) {
+          if (!state.isLoaded) set({ isLoaded: true });
+          return;
+        }
+
+        const detailsPromises = showsToFetch.map(show => getShowDetails(show.id));
+        const results = await Promise.all(detailsPromises);
+
+        const newDetails: Record<number, TMDbShowDetails> = {};
+        results.forEach(detail => {
+          if (detail) {
+            newDetails[detail.id] = detail;
+          }
+        });
+
+        set(prevState => ({
+          details: { ...prevState.details, ...newDetails },
+          isLoaded: true
+        }));
+      },
+
+      addShow: async (show) => {
         const state = get();
         if (state.shows.some(s => s.id === show.id)) {
           toast({
@@ -36,9 +65,19 @@ export const useShows = create<ShowsState>()(
           });
           return;
         }
+        
+        const newShow = { ...show, watched_episodes: [] };
         set(prevState => ({
-          shows: [...prevState.shows, { ...show, watched_episodes: [] }]
+          shows: [...prevState.shows, newShow]
         }));
+        
+        const showDetails = await getShowDetails(show.id);
+        if (showDetails) {
+            set(prevState => ({
+                details: { ...prevState.details, [show.id]: showDetails }
+            }));
+        }
+
         toast({
           title: 'Série Adicionada!',
           description: `${show.name} foi adicionado ao seu painel.`
@@ -49,7 +88,8 @@ export const useShows = create<ShowsState>()(
         const showToRemove = get().shows.find(s => s.id === showId);
         if (showToRemove) {
           set(state => ({
-            shows: state.shows.filter(s => s.id !== showId)
+            shows: state.shows.filter(s => s.id !== showId),
+            details: Object.fromEntries(Object.entries(state.details).filter(([id]) => Number(id) !== showId))
           }));
           toast({
             variant: 'destructive',
@@ -120,8 +160,10 @@ export const useShows = create<ShowsState>()(
     {
       name: 'fluxdash-shows',
       storage: createJSONStorage(() => localStorage),
-       onRehydrateStorage: () => (state) => {
-        if (state) state.isLoaded = true;
+       onRehydrateStorage: () => (state, error) => {
+        if (state) {
+            state.fetchMissingDetails(state.shows);
+        }
       },
     }
   )

@@ -2,11 +2,13 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Movie } from '@/types';
+import type { Movie, TMDbMovieDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { getMovieDetails } from '@/services/tmdb';
 
 interface MoviesState {
   movies: Movie[];
+  details: Record<number, TMDbMovieDetails>;
   isLoaded: boolean;
   movieDetailsId: number | null;
   isMovieDetailsOpen: boolean;
@@ -15,17 +17,44 @@ interface MoviesState {
   toggleMovieWatched: (movieId: number) => void;
   handleMovieDetailsClick: (movieId: number) => void;
   setMovieDetailsOpen: (isOpen: boolean) => void;
+  fetchMissingDetails: (movies: Movie[]) => Promise<void>;
 }
 
 export const useMovies = create<MoviesState>()(
   persist(
     (set, get) => ({
       movies: [],
+      details: {},
       isLoaded: false,
       movieDetailsId: null,
       isMovieDetailsOpen: false,
 
-      addMovie: (movie) => {
+      fetchMissingDetails: async (movies) => {
+        const state = get();
+        const moviesToFetch = movies.filter(movie => !state.details[movie.id]);
+
+        if (moviesToFetch.length === 0) {
+            if (!state.isLoaded) set({ isLoaded: true });
+            return;
+        };
+
+        const detailsPromises = moviesToFetch.map(movie => getMovieDetails(movie.id));
+        const results = await Promise.all(detailsPromises);
+
+        const newDetails: Record<number, TMDbMovieDetails> = {};
+        results.forEach(detail => {
+            if (detail) {
+                newDetails[detail.id] = detail;
+            }
+        });
+        
+        set(prevState => ({ 
+            details: { ...prevState.details, ...newDetails },
+            isLoaded: true 
+        }));
+      },
+
+      addMovie: async (movie) => {
         const state = get();
         if (state.movies.some((m) => m.id === movie.id)) {
           toast({
@@ -35,9 +64,19 @@ export const useMovies = create<MoviesState>()(
           });
           return;
         }
+        const newMovie = { ...movie, watched: false };
         set((prevState) => ({
-          movies: [...prevState.movies, { ...movie, watched: false }],
+          movies: [...prevState.movies, newMovie],
         }));
+        
+        // Fetch details for the new movie
+        const movieDetails = await getMovieDetails(movie.id);
+        if (movieDetails) {
+            set(prevState => ({
+                details: { ...prevState.details, [movie.id]: movieDetails }
+            }));
+        }
+
         toast({
           title: 'Filme Adicionado!',
           description: `${movie.title} foi adicionado à sua lista.`,
@@ -49,6 +88,7 @@ export const useMovies = create<MoviesState>()(
         if (movieToRemove) {
           set((state) => ({
             movies: state.movies.filter((m) => m.id !== movieId),
+            details: Object.fromEntries(Object.entries(state.details).filter(([id]) => Number(id) !== movieId))
           }));
           toast({
             variant: 'destructive',
@@ -93,8 +133,10 @@ export const useMovies = create<MoviesState>()(
     {
       name: 'fluxdash-movies',
       storage: createJSONStorage(() => localStorage),
-       onRehydrateStorage: () => (state) => {
-        if (state) state.isLoaded = true;
+       onRehydrateStorage: () => (state, error) => {
+        if (state) {
+            state.fetchMissingDetails(state.movies);
+        }
       },
     }
   )

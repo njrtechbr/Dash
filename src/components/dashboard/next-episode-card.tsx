@@ -4,8 +4,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import { format, isToday, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getShowDetails, getSeasonDetails } from '@/services/tmdb';
-import type { TMDbShowDetails, Episode, WatchProvider, Show } from '@/types';
+import type { Episode, Show } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '../ui/button';
@@ -17,61 +16,37 @@ import { Progress } from '../ui/progress';
 
 interface NextEpisodeCardProps {
   show: Show;
-  onCardClick: (showId: number) => void;
 }
 
-export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
-  const [details, setDetails] = React.useState<TMDbShowDetails | null>(null);
-  const [nextEpisode, setNextEpisode] = React.useState<Episode | null>(null);
-  const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const { shows } = useShows();
+export function NextEpisodeCard({ show }: NextEpisodeCardProps) {
+  const { details: allDetails, handleShowDetailsClick } = useShows();
   const [progress, setProgress] = React.useState(0);
-
+  const details = allDetails[show.id];
+  const { shows } = useShows();
+  
   const currentShow = shows.find(s => s.id === show.id);
 
   React.useEffect(() => {
-    const fetchDetails = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getShowDetails(show.id);
-        if (data) {
-          setDetails(data);
-          
-          if (data['watch/providers']?.results?.BR?.flatrate) {
-             setWatchProviders(data['watch/providers'].results.BR.flatrate);
-          }
-
-          if (data.next_episode_to_air) {
-            setNextEpisode(data.next_episode_to_air);
-          } else if (data.last_episode_to_air) {
-            setNextEpisode(data.last_episode_to_air);
-          }
-          
-          const totalEpisodes = data.seasons
+    if (details && currentShow) {
+        const totalEpisodes = details.seasons
             .filter(s => s.season_number > 0 && s.episode_count > 0)
             .reduce((acc, s) => acc + s.episode_count, 0);
 
-          const watchedCount = currentShow?.watched_episodes?.length || 0;
+        const watchedCount = currentShow?.watched_episodes?.length || 0;
 
-          if (totalEpisodes > 0) {
-              setProgress((watchedCount / totalEpisodes) * 100);
-          }
-
-        } else {
-          setError('Não foi possível carregar os detalhes da série.');
+        if (totalEpisodes > 0) {
+            setProgress((watchedCount / totalEpisodes) * 100);
         }
-      } catch (err) {
-        setError('Ocorreu um erro ao buscar os dados.');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDetails();
-  }, [show.id, currentShow]);
+    }
+  }, [details, currentShow]);
+
+
+  if (!details) {
+    return <Skeleton className="h-[22rem] w-full bg-muted/50" />;
+  }
+  
+  const nextEpisode: Episode | null = details.next_episode_to_air || details.last_episode_to_air;
+  const watchProviders = details['watch/providers']?.results?.BR?.flatrate || [];
 
   const formatDate = (dateString: string) => {
     const date = parseISO(dateString);
@@ -83,41 +58,16 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onCardClick(details!.id)
-  }
-
-  if (isLoading) {
-    return <Skeleton className="h-[22rem] w-full bg-muted/50" />;
-  }
-
-  if (error || !details) {
-    return (
-        <Card className="flex flex-col h-[22rem] bg-destructive/20 border-destructive text-destructive-foreground">
-            <CardHeader>
-                <CardTitle className="text-base">Erro ao Carregar</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm">{error || 'Não foi possível encontrar a série.'}</p>
-            </CardContent>
-            <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive-foreground hover:bg-destructive/20" onClick={(e) => {
-                    e.stopPropagation();
-                    useShows.getState().removeShow(show.id);
-                 }}>
-                    Remover
-                </Button>
-            </CardFooter>
-        </Card>
-    );
+    handleShowDetailsClick(details!.id)
   }
 
   return (
     <Card 
         className={cn("flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer bg-card/80 backdrop-blur-sm")}
-        onClick={() => onCardClick(details.id)}
+        onClick={() => handleShowDetailsClick(details.id)}
     >
        {isReleasedToday && <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-20 animate-pulse">LANÇAMENTO HOJE</div>}
-       <button onClick={() => onCardClick(details.id)} className='absolute inset-0 z-10 sr-only'>
+       <button onClick={() => handleShowDetailsClick(details.id)} className='absolute inset-0 z-10 sr-only'>
           <span className='sr-only'>Ver detalhes de {details.name}</span>
        </button>
       
