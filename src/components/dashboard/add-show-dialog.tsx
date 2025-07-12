@@ -17,8 +17,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShows } from '@/hooks/use-shows';
 import type { TMDbSearchResult } from '@/types';
-import { Search, PlusCircle } from 'lucide-react';
+import { Search, PlusCircle, Wand2, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { suggestShows } from '@/ai/flows/suggest-shows-flow';
 
 interface AddShowDialogProps {
   open: boolean;
@@ -30,31 +31,40 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
   const [debouncedQuery] = useDebounce(query, 500);
   const [results, setResults] = React.useState<TMDbSearchResult[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isSuggesting, setIsSuggesting] = React.useState(false);
   const { addShow } = useShows();
   const { toast } = useToast();
 
+  const performSearch = React.useCallback(async (searchQuery: string) => {
+    setIsLoading(true);
+    try {
+      const data = await searchShows(searchQuery);
+      setResults(data);
+       if (data.length === 0) {
+        toast({
+            variant: 'default',
+            title: 'Nenhuma série encontrada',
+            description: `Não encontramos resultados para "${searchQuery}".`
+        })
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro na busca',
+        description: 'Não foi possível buscar as séries. Verifique se a chave da API do TMDb está configurada corretamente no arquivo .env.',
+      });
+    }
+    setIsLoading(false);
+  }, [toast]);
+
   React.useEffect(() => {
     if (debouncedQuery.length > 2) {
-      const fetchResults = async () => {
-        setIsLoading(true);
-        try {
-            const data = await searchShows(debouncedQuery);
-            setResults(data);
-        } catch(error) {
-            console.error(error);
-            toast({
-                variant: 'destructive',
-                title: 'Erro na busca',
-                description: 'Não foi possível buscar as séries. Verifique se a chave da API do TMDb está configurada corretamente no arquivo .env.'
-            })
-        }
-        setIsLoading(false);
-      };
-      fetchResults();
+      performSearch(debouncedQuery);
     } else {
       setResults([]);
     }
-  }, [debouncedQuery, toast]);
+  }, [debouncedQuery, performSearch]);
 
   const handleAddShow = (show: TMDbSearchResult) => {
     addShow({
@@ -66,6 +76,48 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
     setQuery('');
     setResults([]);
   };
+  
+  const handleSuggest = async () => {
+    if (!query) {
+       toast({
+        variant: 'destructive',
+        title: 'Campo vazio',
+        description: 'Por favor, descreva o tipo de série que você procura.',
+      });
+      return;
+    }
+    setIsSuggesting(true);
+    setResults([]);
+    try {
+        const suggestions = await suggestShows({ prompt: query });
+        toast({
+            title: 'Sugestões da IA',
+            description: `Encontramos ${suggestions.recommendations.length} séries para você!`,
+        });
+
+        // Search for each suggestion on TMDb to get full details
+        const searchPromises = suggestions.recommendations.map(rec => searchShows(`${rec.name} ${rec.year}`));
+        const searchResults = await Promise.all(searchPromises);
+        
+        // Flatten results and filter out shows that might not match exactly
+        const finalResults = searchResults.map((res, index) => {
+            const bestMatch = res.find(show => show.name.toLowerCase().includes(suggestions.recommendations[index].name.toLowerCase()));
+            return bestMatch;
+        }).filter((show): show is TMDbSearchResult => Boolean(show));
+
+        setResults(finalResults);
+        
+    } catch(error) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Erro na Sugestão',
+            description: 'Não foi possível obter sugestões da IA. Tente novamente.',
+        });
+    } finally {
+        setIsSuggesting(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,21 +125,30 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
         <DialogHeader>
           <DialogTitle>Adicionar Série</DialogTitle>
           <DialogDescription>
-            Busque pelo nome da série que você deseja acompanhar.
+            Busque pelo nome da série ou descreva o que você gosta e use a IA para sugestões.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome da série..."
+            placeholder="Ex: The Office ou 'séries de ficção científica'"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-10"
+            className="pr-20"
           />
+           <Button 
+                variant="ghost" 
+                size="sm" 
+                className="absolute right-1 top-1/2 -translate-y-1/2" 
+                onClick={handleSuggest} 
+                disabled={isSuggesting || isLoading}
+            >
+                {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                <span className="sr-only">Sugerir</span>
+            </Button>
         </div>
         <ScrollArea className="h-80 border rounded-md">
           <div className="p-2 space-y-2">
-            {isLoading && (
+            {(isLoading || isSuggesting) && (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 p-2">
                   <Skeleton className="h-16 w-12 rounded" />
@@ -98,12 +159,12 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
                 </div>
               ))
             )}
-            {!isLoading && results.length === 0 && (
+            {!isLoading && !isSuggesting && results.length === 0 && (
               <div className="text-center text-sm text-muted-foreground py-10">
-                {debouncedQuery.length > 2 ? 'Nenhuma série encontrada.' : 'Digite para buscar.'}
+                {query.length > 2 ? 'Nenhuma série encontrada.' : 'Digite para buscar ou use a IA.'}
               </div>
             )}
-            {!isLoading && results.map((show) => (
+            {!isLoading && !isSuggesting && results.map((show) => (
               <div
                 key={show.id}
                 className="flex items-center gap-4 p-2 rounded-md hover:bg-accent transition-colors"
