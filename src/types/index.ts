@@ -87,3 +87,38 @@ export type DashboardCard = {
   icon: LucideIcon;
   category: 'financial' | 'utility';
 };
+
+// Movie Types
+export type Movie = {
+  id: number;
+  title: string;
+  poster_path: string | null;
+}
+
+export interface TMDbMovieSearchResult {
+  id: number;
+  title: string;
+  overview: string;
+  poster_path: string | null;
+  release_date: string;
+}
+
+export interface TMDbMovieDetails {
+  id: number;
+  title: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string;
+  genres: { id: number; name: string }[];
+  runtime: number | null;
+  'watch/providers'?: {
+    results: {
+        BR?: {
+            flatrate?: WatchProvider[];
+            rent?: WatchProvider[];
+            buy?: WatchProvider[];
+        }
+    }
+  }
+}

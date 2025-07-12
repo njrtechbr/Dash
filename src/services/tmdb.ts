@@ -1,6 +1,6 @@
 'use server';
 
-import type { TMDbSearchResult, TMDbShowDetails, SeasonDetails } from '@/types';
+import type { TMDbMovieSearchResult, TMDbShowDetails, SeasonDetails, TMDbSearchResult, TMDbMovieDetails } from '@/types';
 
 const API_KEY = process.env.TMDB_API_KEY;
 const API_BASE_URL = 'https://api.themoviedb.org/3';
@@ -80,4 +80,48 @@ export async function getAllSeasonsDetails(showId: number, seasonNumbers: number
     return results
         .filter(result => result.status === 'fulfilled' && result.value)
         .map(result => (result as PromiseFulfilledResult<SeasonDetails>).value);
+}
+
+export async function searchMovies(query: string): Promise<TMDbMovieSearchResult[]> {
+  if (!API_KEY) {
+    throw new Error('A chave da API do TMDb não está configurada.');
+  }
+  if (!query) {
+    return [];
+  }
+
+  const url = `${API_BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('Erro na API de filmes do TMDb:', await response.text());
+      return [];
+    }
+    const data = await response.json();
+    return data.results;
+  } catch (error) {
+    console.error('Falha ao buscar filmes:', error);
+    return [];
+  }
+}
+
+export async function getMovieDetails(movieId: number): Promise<TMDbMovieDetails | null> {
+    if (!API_KEY) {
+        throw new Error('A chave da API do TMDb não está configurada.');
+    }
+
+    const url = `${API_BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers`;
+    
+    try {
+        const response = await fetch(url, { next: { revalidate: 86400 } }); // Revalida a cada dia
+        if (!response.ok) {
+            console.error('Erro ao buscar detalhes do filme:', await response.text());
+            return null;
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Falha ao buscar detalhes do filme:', error);
+        return null;
+    }
 }

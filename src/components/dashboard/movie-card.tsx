@@ -1,0 +1,179 @@
+'use client';
+
+import * as React from 'react';
+import Image from 'next/image';
+import { getMovieDetails } from '@/services/tmdb';
+import type { TMDbMovieDetails, Movie, WatchProvider } from '@/types';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '../ui/button';
+import { Calendar, Clock, Trash2, Tag } from 'lucide-react';
+import { useMovies } from '@/hooks/use-movies';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+interface MovieCardProps {
+  movie: Movie;
+}
+
+export function MovieCard({ movie }: MovieCardProps) {
+  const [details, setDetails] = React.useState<TMDbMovieDetails | null>(null);
+  const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const { removeMovie } = useMovies();
+
+  React.useEffect(() => {
+    const fetchDetails = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await getMovieDetails(movie.id);
+        if (data) {
+          setDetails(data);
+          
+          if (data['watch/providers']?.results?.BR?.flatrate) {
+             setWatchProviders(data['watch/providers'].results.BR.flatrate);
+          }
+        } else {
+          setError('Não foi possível carregar os detalhes do filme.');
+        }
+      } catch (err) {
+        setError('Ocorreu um erro ao buscar os dados.');
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [movie.id]);
+
+  const formatRuntime = (minutes: number | null) => {
+    if (!minutes) return '';
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}h ${m}m`;
+  };
+
+  const releaseYear = details?.release_date ? new Date(details.release_date).getFullYear() : '';
+
+  if (isLoading) {
+    return <Skeleton className="h-[20rem] w-full" />;
+  }
+
+  if (error || !details) {
+    return (
+        <Card className="flex flex-col h-[20rem] bg-destructive/10 border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive text-base line-clamp-1">{movie.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-destructive">{error || 'Não foi possível encontrar o filme.'}</p>
+            </CardContent>
+            <CardFooter className="mt-auto">
+                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={() => removeMovie(movie.id)}>
+                    Remover
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+  }
+
+  return (
+    <Card className={cn(
+        "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group"
+    )}>
+      <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => removeMovie(movie.id)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Remover Filme</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Remover da lista</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+      </div>
+      
+      <CardHeader className="p-0">
+        <div className="relative h-48">
+             {details.backdrop_path ? (
+                 <Image
+                    src={`https://image.tmdb.org/t/p/w500${details.backdrop_path}`}
+                    alt={`Pôster de ${details.title}`}
+                    fill
+                    style={{objectFit: 'cover'}}
+                    className="opacity-80 group-hover:opacity-100 transition-opacity"
+                    data-ai-hint="movie poster"
+                />
+             ) : (
+                <div className='w-full h-full bg-secondary flex items-center justify-center'>
+                   <p className='text-muted-foreground text-sm'>Sem imagem de fundo</p>
+                </div>
+             )}
+             <div className='absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent'/>
+             <div className="absolute -bottom-8 left-4 z-10">
+                 <Image
+                    src={details.poster_path ? `https://image.tmdb.org/t/p/w154${details.poster_path}` : 'https://placehold.co/92x138.png'}
+                    alt={`Pôster de ${details.title}`}
+                    width={80}
+                    height={120}
+                    className="rounded-md shadow-lg border-2 border-background"
+                    data-ai-hint="movie poster"
+                />
+            </div>
+            {watchProviders.length > 0 && (
+                <div className="absolute bottom-2 right-2 z-10 flex gap-1.5 flex-wrap justify-end">
+                    {watchProviders.slice(0, 2).map(provider => (
+                        <Badge key={provider.provider_id} variant="secondary" className='bg-black/50 text-white/90 border-transparent text-xs'>
+                            {provider.provider_name}
+                        </Badge>
+                    ))}
+                </div>
+            )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pb-2 pt-10 flex-grow">
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <CardTitle className="text-lg font-bold text-card-foreground line-clamp-1 cursor-default">{details.title}</CardTitle>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{details.title}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+
+         <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+             <Calendar className="h-3 w-3" />
+             <span>{releaseYear}</span>
+             {details.runtime && (
+                <>
+                    <span>•</span>
+                    <Clock className="h-3 w-3" />
+                    <span>{formatRuntime(details.runtime)}</span>
+                </>
+             )}
+         </div>
+      </CardContent>
+      <CardFooter className="p-4 pt-0 mt-auto flex flex-wrap gap-1">
+            {details.genres.slice(0, 3).map(genre => (
+                <Badge key={genre.id} variant="outline" className="text-xs">
+                    <Tag className="mr-1 h-3 w-3" /> {genre.name}
+                </Badge>
+            ))}
+      </CardFooter>
+    </Card>
+  );
+}

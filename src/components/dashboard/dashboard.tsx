@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, LayoutGrid, Tv } from 'lucide-react';
+import { Plus, GripVertical, Layers, LayoutGrid, Tv, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
@@ -24,6 +24,9 @@ import { useDashboardSettings } from '@/hooks/use-dashboard-settings';
 import { AVAILABLE_CARDS } from '@/lib/dashboard-cards';
 import { CustomizeDashboardDialog } from './customize-dashboard-dialog';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { AddMovieDialog } from './add-movie-dialog';
+import { MovieCard } from './movie-card';
+import { useMovies } from '@/hooks/use-movies';
 
 
 interface InfoCardProps {
@@ -107,6 +110,7 @@ export default function Dashboard() {
   const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
   const [addShowDialogOpen, setAddShowDialogOpen] = React.useState(false);
+  const [addMovieDialogOpen, setAddMovieDialogOpen] = React.useState(false);
   const [showDetailsDialogOpen, setShowDetailsDialogOpen] = React.useState(false);
   const [customizeDialogOpen, setCustomizeDialogOpen] = React.useState(false);
   const [selectedShowId, setSelectedShowId] = React.useState<number | null>(null);
@@ -120,6 +124,7 @@ export default function Dashboard() {
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
   const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
   const { shows } = useShows();
+  const { movies } = useMovies();
   const { activeCardIds, isLoaded: areSettingsLoaded } = useDashboardSettings();
 
   const handleAddClick = () => {
@@ -251,6 +256,10 @@ export default function Dashboard() {
             <LayoutGrid className="mr-2 h-4 w-4" />
             Customizar
           </Button>
+           <Button onClick={() => setAddMovieDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
+            <Film className="mr-2 h-4 w-4" />
+            Adicionar Filme
+          </Button>
            <Button onClick={() => setAddShowDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
             <Tv className="mr-2 h-4 w-4" />
             Adicionar Série
@@ -283,6 +292,17 @@ export default function Dashboard() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {shows.map(show => (
                       <NextEpisodeCard key={show.id} show={show} onCardClick={handleShowDetailsClick} />
+                  ))}
+              </div>
+          </div>
+        )}
+        
+        {movies.length > 0 && (
+          <div className="mb-8">
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Filmes para Assistir</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  {movies.map(movie => (
+                      <MovieCard key={movie.id} movie={movie} />
                   ))}
               </div>
           </div>
@@ -337,7 +357,7 @@ export default function Dashboard() {
             ))}
           </Accordion>
         )}
-        {isLoaded && links.length === 0 && shows.length === 0 && (
+        {isLoaded && links.length === 0 && shows.length === 0 && movies.length === 0 && (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed shadow-sm mt-16 bg-card/50">
             <div className="flex flex-col items-center gap-4 text-center p-8">
               <div className='p-4 bg-primary/10 rounded-full'>
@@ -347,7 +367,7 @@ export default function Dashboard() {
                 Seu painel está vazio
               </h3>
               <p className="text-sm text-muted-foreground">
-                Adicione seus sistemas web favoritos ou séries para começar.
+                Adicione seus sistemas web, filmes ou séries para começar.
               </p>
               <Button className="mt-4" onClick={handleAddClick}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -372,6 +392,10 @@ export default function Dashboard() {
       <AddShowDialog
         open={addShowDialogOpen}
         onOpenChange={setAddShowDialogOpen}
+      />
+      <AddMovieDialog
+        open={addMovieDialogOpen}
+        onOpenChange={setAddMovieDialogOpen}
       />
       <CustomizeDashboardDialog
         open={customizeDialogOpen}
