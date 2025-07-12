@@ -20,9 +20,10 @@ import {
 
 interface MovieCardProps {
   movie: Movie;
+  onCardClick: (movieId: number) => void;
 }
 
-export function MovieCard({ movie }: MovieCardProps) {
+export function MovieCard({ movie, onCardClick }: MovieCardProps) {
   const [details, setDetails] = React.useState<TMDbMovieDetails | null>(null);
   const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -62,6 +63,11 @@ export function MovieCard({ movie }: MovieCardProps) {
   };
 
   const releaseYear = details?.release_date ? new Date(details.release_date).getFullYear() : '';
+  
+  const handleButtonClick = (e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    action();
+  }
 
   if (isLoading) {
     return <Skeleton className="h-[20rem] w-full" />;
@@ -77,7 +83,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                 <p className="text-sm text-destructive">{error || 'Não foi possível encontrar o filme.'}</p>
             </CardContent>
             <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={() => removeMovie(movie.id)}>
+                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={(e) => handleButtonClick(e, () => removeMovie(movie.id))}>
                     Remover
                 </Button>
             </CardFooter>
@@ -86,10 +92,13 @@ export function MovieCard({ movie }: MovieCardProps) {
   }
 
   return (
-    <Card className={cn(
-        "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group",
-        movie.watched && "border-green-500/50"
-    )}>
+    <Card 
+        className={cn(
+            "flex flex-col h-[20rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer",
+            movie.watched && "border-green-500/50"
+        )}
+        onClick={() => onCardClick(movie.id)}
+    >
       {movie.watched && (
         <div className='absolute inset-0 bg-black/60 z-10 flex items-center justify-center'>
             <CheckCircle2 className='h-16 w-16 text-green-500'/>
@@ -99,7 +108,7 @@ export function MovieCard({ movie }: MovieCardProps) {
         <TooltipProvider>
              <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant={movie.watched ? 'secondary' : 'default'} size="icon" className="h-8 w-8" onClick={() => toggleMovieWatched(movie.id)}>
+                    <Button variant={movie.watched ? 'secondary' : 'default'} size="icon" className="h-8 w-8" onClick={(e) => handleButtonClick(e, () => toggleMovieWatched(movie.id))}>
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Marcar como assistido</span>
                     </Button>
@@ -110,7 +119,7 @@ export function MovieCard({ movie }: MovieCardProps) {
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => removeMovie(movie.id)}>
+                    <Button variant="destructive" size="icon" className="h-8 w-8" onClick={(e) => handleButtonClick(e, () => removeMovie(movie.id))}>
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Remover Filme</span>
                     </Button>

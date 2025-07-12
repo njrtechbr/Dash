@@ -27,6 +27,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { AddMovieDialog } from './add-movie-dialog';
 import { MovieCard } from './movie-card';
 import { useMovies } from '@/hooks/use-movies';
+import { MovieDetailsDialog } from './movie-details-dialog';
 
 
 interface InfoCardProps {
@@ -112,8 +113,10 @@ export default function Dashboard() {
   const [addShowDialogOpen, setAddShowDialogOpen] = React.useState(false);
   const [addMovieDialogOpen, setAddMovieDialogOpen] = React.useState(false);
   const [showDetailsDialogOpen, setShowDetailsDialogOpen] = React.useState(false);
+  const [movieDetailsDialogOpen, setMovieDetailsDialogOpen] = React.useState(false);
   const [customizeDialogOpen, setCustomizeDialogOpen] = React.useState(false);
   const [selectedShowId, setSelectedShowId] = React.useState<number | null>(null);
+  const [selectedMovieId, setSelectedMovieId] = React.useState<number | null>(null);
 
   const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
 
@@ -144,6 +147,11 @@ export default function Dashboard() {
   const handleShowDetailsClick = (showId: number) => {
     setSelectedShowId(showId);
     setShowDetailsDialogOpen(true);
+  };
+
+  const handleMovieDetailsClick = (movieId: number) => {
+    setSelectedMovieId(movieId);
+    setMovieDetailsDialogOpen(true);
   };
 
   const handleSaveLink = (data: Omit<LinkItem, 'id'>, id?: string) => {
@@ -302,7 +310,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold tracking-tight mb-4">Filmes para Assistir</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {movies.map(movie => (
-                      <MovieCard key={movie.id} movie={movie} />
+                      <MovieCard key={movie.id} movie={movie} onCardClick={handleMovieDetailsClick} />
                   ))}
               </div>
           </div>
@@ -406,6 +414,13 @@ export default function Dashboard() {
             open={showDetailsDialogOpen}
             onOpenChange={setShowDetailsDialogOpen}
             showId={selectedShowId}
+        />
+      )}
+       {selectedMovieId && (
+        <MovieDetailsDialog
+            open={movieDetailsDialogOpen}
+            onOpenChange={setMovieDetailsDialogOpen}
+            movieId={selectedMovieId}
         />
       )}
     </div>

@@ -48,11 +48,17 @@ export type WatchProvider = {
     provider_id: number;
     provider_name: string;
     logo_path: string;
+    tmdbId?: number; // Optional, can be added for deep linking
 }
 
 export interface TMDbShowDetails {
   id: number;
   name: string;
+  overview: string;
+  first_air_date: string;
+  genres: { id: number; name: string }[];
+  vote_average: number;
+  vote_count: number;
   next_episode_to_air: Episode | null;
   last_episode_to_air: Episode | null;
   poster_path: string | null;

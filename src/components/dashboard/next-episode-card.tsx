@@ -51,7 +51,7 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
           }
           
           const totalEpisodes = data.seasons
-            .filter(s => s.season_number > 0)
+            .filter(s => s.season_number > 0 && s.episode_count > 0)
             .reduce((acc, s) => acc + s.episode_count, 0);
 
           const watchedCount = currentShow?.watched_episodes?.length || 0;
@@ -81,6 +81,11 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
   
   const isReleasedToday = nextEpisode && nextEpisode.air_date && isToday(parseISO(nextEpisode.air_date));
 
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCardClick(details!.id)
+  }
+
   if (isLoading) {
     return <Skeleton className="h-[22rem] w-full" />;
   }
@@ -95,7 +100,10 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
                 <p className="text-sm text-destructive">{error || 'Não foi possível encontrar a série.'}</p>
             </CardContent>
             <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={() => removeShow(show.id)}>
+                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={(e) => {
+                    e.stopPropagation();
+                    removeShow(show.id);
+                 }}>
                     Remover
                 </Button>
             </CardFooter>
@@ -104,11 +112,12 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
   }
 
   return (
-    <Card className={cn(
-        "flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group"
-    )}>
+    <Card 
+        className={cn("flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer")}
+        onClick={() => onCardClick(details.id)}
+    >
        {isReleasedToday && <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-20 animate-pulse">LANÇAMENTO HOJE</div>}
-       <button onClick={() => onCardClick(details.id)} className='absolute inset-0 z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary rounded-lg'>
+       <button onClick={() => onCardClick(details.id)} className='absolute inset-0 z-10 sr-only'>
           <span className='sr-only'>Ver detalhes de {details.name}</span>
        </button>
       
@@ -178,7 +187,7 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
                 </div>
                 <Progress value={progress} className="h-2" />
             </div>
-            <Button onClick={() => onCardClick(details.id)} variant='secondary' className='w-full z-20'>
+            <Button onClick={handleButtonClick} variant='secondary' className='w-full z-20'>
                 <ExternalLink className='mr-2 h-4 w-4' /> Gerenciar Série
             </Button>
       </CardFooter>

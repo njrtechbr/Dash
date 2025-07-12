@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { getShowDetails, getAllSeasonsDetails } from '@/services/tmdb';
 import type { TMDbShowDetails, SeasonDetails, Episode } from '@/types';
 import { useShows } from '@/hooks/use-shows';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -18,8 +18,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Check, Loader2, Trash2 } from 'lucide-react';
+import { Check, Trash2, Tv, Film, Calendar, Star } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Separator } from '../ui/separator';
 
 interface ShowDetailsDialogProps {
   open: boolean;
@@ -34,13 +35,14 @@ function EpisodeItem({ showId, episode }: { showId: number; episode: Episode }) 
     const isWatched = show?.watched_episodes?.some(e => e.episodeId === episodeId) ?? false;
 
     return (
-        <div className="flex items-center space-x-3 py-2 px-4 hover:bg-muted/50 rounded-md">
+        <div className="flex items-start space-x-3 py-3 px-4 hover:bg-muted/50 rounded-md">
             <Checkbox
                 id={`ep-${episode.id}`}
                 checked={isWatched}
                 onCheckedChange={(checked) => {
                     toggleWatchedEpisode(showId, episode, !!checked);
                 }}
+                className="mt-1"
             />
             <label htmlFor={`ep-${episode.id}`} className="flex-grow cursor-pointer">
                 <p className="font-semibold">{episode.episode_number}. {episode.name}</p>
@@ -95,9 +97,9 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
     
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0">
                 {isLoading || !details ? (
-                     <div className="space-y-4">
+                     <div className="p-6 space-y-4">
                         <Skeleton className="h-8 w-1/2" />
                         <Skeleton className="h-4 w-3/4" />
                         <div className="space-y-2 pt-4">
@@ -108,15 +110,50 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
                      </div>
                 ) : (
                     <>
-                        <DialogHeader>
-                            <DialogTitle>{details.name}</DialogTitle>
-                            <DialogDescription>
-                                Gerencie os episódios assistidos por temporada.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <ScrollArea className="flex-grow -mx-6 px-6">
+                    <div className="relative h-56 md:h-72 w-full">
+                        {details.backdrop_path && (
+                             <Image
+                                src={`https://image.tmdb.org/t/p/w1280${details.backdrop_path}`}
+                                alt={`Fundo de ${details.name}`}
+                                fill
+                                style={{objectFit:"cover"}}
+                                className="rounded-t-lg"
+                                data-ai-hint="movie background"
+                            />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                        <div className="absolute bottom-0 left-0 p-6">
+                            <DialogTitle className="text-3xl font-bold text-foreground drop-shadow-lg">{details.name}</DialogTitle>
+                             <div className="flex items-center gap-4 text-sm text-background drop-shadow-sm mt-2">
+                                <Badge variant="secondary" className="bg-black/50 text-white/90 border-transparent">{details.status}</Badge>
+                                 <div className="flex items-center gap-1.5"><Calendar className="h-4 w-4"/> {new Date(details.first_air_date).getFullYear()}</div>
+                                <div className="flex items-center gap-1.5"><Tv className="h-4 w-4"/> {details.number_of_seasons} Temporadas</div>
+                                <div className="flex items-center gap-1.5"><Film className="h-4 w-4"/> {details.number_of_episodes} Episódios</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
+                        <div className="md:col-span-1 p-6 pt-0 pr-0 overflow-y-auto">
+                            <h3 className="font-bold text-lg mb-2">Sobre a Série</h3>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {details.genres.map(genre => (
+                                    <Badge key={genre.id} variant="outline">{genre.name}</Badge>
+                                ))}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-4 pr-6">{details.overview}</p>
+                            
+                             <div className="flex items-center gap-2 text-sm">
+                                <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
+                                <span className="font-bold text-lg">{details.vote_average.toFixed(1)}</span>
+                                <span className="text-muted-foreground">({details.vote_count} votos)</span>
+                            </div>
+                        </div>
+                        <div className="md:col-span-2 p-6 pt-0 overflow-y-auto border-l">
+                             <h3 className="font-bold text-lg mb-2">Episódios</h3>
                            <Accordion type="multiple" className="w-full">
                                 {seasons.map(season => {
+                                    if (season.episodes.length === 0) return null;
                                     const seasonEpisodeIds = new Set(season.episodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
                                     const watchedCount = Array.from(watchedEpisodeIds).filter(id => seasonEpisodeIds.has(id)).length;
                                     const allWatched = watchedCount === season.episodes.length;
@@ -151,16 +188,17 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
                                     )
                                 })}
                             </Accordion>
-                        </ScrollArea>
-                        <DialogFooter className='!justify-between'>
-                             <Button variant="destructive" onClick={handleRemoveShow}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Remover Série
-                            </Button>
-                            <Button type="button" onClick={() => onOpenChange(false)}>
-                                Fechar
-                            </Button>
-                        </DialogFooter>
+                        </div>
+                    </div>
+                    <DialogFooter className='!justify-between border-t p-4'>
+                            <Button variant="destructive" onClick={handleRemoveShow}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remover Série
+                        </Button>
+                        <Button type="button" onClick={() => onOpenChange(false)}>
+                            Fechar
+                        </Button>
+                    </DialogFooter>
                     </>
                 )}
             </DialogContent>
