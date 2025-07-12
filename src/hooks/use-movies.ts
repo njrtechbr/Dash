@@ -99,21 +99,3 @@ export const useMovies = create<MoviesState>()(
     }
   )
 );
-
-// This component can be placed in your layout to handle dialogs globally
-export function MovieDialogManager() {
-  const { isMovieDetailsOpen, setMovieDetailsOpen, movieDetailsId } = useMovies();
-  const MovieDetailsDialog = require('@/components/dashboard/movie-details-dialog').MovieDetailsDialog;
-
-  return (
-    <>
-      {movieDetailsId && (
-        <MovieDetailsDialog
-          open={isMovieDetailsOpen}
-          onOpenChange={setMovieDetailsOpen}
-          movieId={movieDetailsId}
-        />
-      )}
-    </>
-  );
-}

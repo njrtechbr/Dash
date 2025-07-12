@@ -2,8 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DashboardSettingsProvider } from '@/hooks/use-dashboard-settings';
-import { ShowsProvider } from '@/hooks/use-shows';
-import { MoviesProvider } from '@/hooks/use-movies';
+import { DialogManagers } from '@/components/dashboard/dialog-managers';
 
 export const metadata: Metadata = {
   title: 'FluxDash',
@@ -24,11 +23,8 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <DashboardSettingsProvider>
-          <ShowsProvider>
-            <MoviesProvider>
-              {children}
-            </MoviesProvider>
-          </ShowsProvider>
+          {children}
+          <DialogManagers />
         </DashboardSettingsProvider>
         <Toaster />
       </body>
