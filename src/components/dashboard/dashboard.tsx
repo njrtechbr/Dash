@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, TrendingUp, Bitcoin, Euro } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
@@ -42,7 +42,7 @@ export default function Dashboard() {
 
   const { toast } = useToast();
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
-  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData(['USD-BRL', 'EUR-BRL', 'BTC-BRL']);
+  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
   const { time, date } = useTime();
 
   const handleAddClick = () => {

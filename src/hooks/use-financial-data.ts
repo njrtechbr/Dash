@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 // API Pública: https://docs.awesomeapi.com.br/api-de-moedas
 const API_URL = 'https://economia.awesomeapi.com.br/json/last/';
+const CODES = ['USD-BRL', 'EUR-BRL', 'BTC-BRL'];
 
 interface FinancialInfo {
     value: string;
@@ -25,18 +26,14 @@ const formatValue = (code: string, data: any): string => {
 }
 
 
-export const useFinancialData = (codes: string[]) => {
+export const useFinancialData = () => {
     const [financialData, setFinancialData] = useState<Record<string, FinancialInfo>>({});
     const [financialError, setFinancialError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const codesString = codes.join(',');
-
+    
     const fetchData = useCallback(async () => {
         setIsLoading(true);
-        if (!codesString) {
-            setIsLoading(false);
-            return;
-        }
+        const codesString = CODES.join(',');
 
         try {
             const lastFetch = localStorage.getItem('financialLastFetch');
@@ -44,8 +41,9 @@ export const useFinancialData = (codes: string[]) => {
             
             if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
                 const parsedCache = JSON.parse(cachedData);
-                if(codes.every(code => parsedCache[code])) {
+                if(CODES.every(code => parsedCache[code])) {
                   setFinancialData(parsedCache);
+                  setFinancialError(null);
                   setIsLoading(false);
                   return;
                 }
@@ -93,7 +91,7 @@ export const useFinancialData = (codes: string[]) => {
         } finally {
             setIsLoading(false);
         }
-    }, [codesString, codes]);
+    }, []);
 
     useEffect(() => {
         fetchData();
