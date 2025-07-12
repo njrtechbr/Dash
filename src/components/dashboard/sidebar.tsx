@@ -24,24 +24,24 @@ import type { LinkItem } from '@/types';
 import { useToast } from '../ui/use-toast';
 
 export function AppSidebar() {
-  const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
+  const { 
+    addLink, 
+    updateLink, 
+    addMultipleLinks, 
+    handleAddNewLink,
+    setLinkDialogOpen,
+    isLinkDialogOpen,
+    linkToEdit
+  } = useLinks();
+
   const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
   const [addShowDialogOpen, setAddShowDialogOpen] = React.useState(false);
   const [addMovieDialogOpen, setAddMovieDialogOpen] = React.useState(false);
   const [customizeDialogOpen, setCustomizeDialogOpen] = React.useState(false);
-  const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
-
-  const { addLink, updateLink, addMultipleLinks, setLinkToEdit: setGlobalLinkToEdit, setLinkDialogOpen: setGlobalLinkDialogOpen } = useLinks.getState();
+  
   const { toast } = useToast();
 
-  React.useEffect(() => {
-    return useLinks.subscribe(state => {
-        setLinkToEdit(state.linkToEdit);
-        setLinkDialogOpen(state.isLinkDialogOpen);
-    });
-  }, []);
-
-  const handleSaveLink = (data: Omit<LinkItem, 'id' | 'isFavorite'>, id?: string) => {
+  const handleSaveLink = (data: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>, id?: string) => {
     if (id) {
       updateLink(id, data);
       toast({ title: "Link Atualizado", description: "Seu link foi atualizado com sucesso." });
@@ -51,7 +51,7 @@ export function AppSidebar() {
     }
   };
 
-  const handleSaveBatchLinks = (links: Omit<LinkItem, 'id' | 'isFavorite'>[]) => {
+  const handleSaveBatchLinks = (links: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>[]) => {
     addMultipleLinks(links);
     toast({ title: "Links Adicionados", description: `${links.length} novos links foram adicionados ao painel.` });
   };
@@ -71,7 +71,7 @@ export function AppSidebar() {
             <SidebarMenu>
                  <SidebarMenuItem>
                     <SidebarMenuButton
-                      onClick={() => useLinks.getState().handleAddNewLink()}
+                      onClick={handleAddNewLink}
                       tooltip="Adicionar Novo Link"
                     >
                       <Plus />
@@ -126,8 +126,8 @@ export function AppSidebar() {
       </div>
 
        <LinkDialog
-        open={linkDialogOpen}
-        onOpenChange={setGlobalLinkDialogOpen}
+        open={isLinkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
         onSave={handleSaveLink}
         linkToEdit={linkToEdit}
       />

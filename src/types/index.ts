@@ -10,6 +10,7 @@ export type LinkItem = {
   group: string;
   description?: string;
   isFavorite?: boolean;
+  createdAt: any; // Can be Firebase Timestamp
 };
 
 export type Icon = {
