@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
-import type { Show } from '@/types';
+import type { Show, WatchedEpisode } from '@/types';
 import { useToast } from './use-toast';
-
-const STORAGE_KEY = 'fluxdash-shows';
 
 interface ShowsContextType {
   shows: Show[];
   isLoaded: boolean;
   addShow: (show: Show) => void;
   removeShow: (showId: number) => void;
-  toggleWatchedEpisode: (showId: number, episodeId: string) => void;
+  toggleWatchedEpisode: (showId: number, episodeId: string, episodeName: string) => void;
 }
 
 const ShowsContext = createContext<ShowsContextType | undefined>(undefined);
@@ -78,15 +76,29 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const toggleWatchedEpisode = useCallback((showId: number, episodeId: string) => {
+  const toggleWatchedEpisode = useCallback((showId: number, episodeId: string, episodeName: string) => {
     setShows(prevShows => {
       const updatedShows = prevShows.map(show => {
         if (show.id === showId) {
           const watchedEpisodes = show.watched_episodes || [];
-          const isWatched = watchedEpisodes.includes(episodeId);
-          const newWatchedEpisodes = isWatched
-            ? watchedEpisodes.filter(id => id !== episodeId)
-            : [...watchedEpisodes, episodeId];
+          const isWatched = watchedEpisodes.some(e => e.episodeId === episodeId);
+          
+          let newWatchedEpisodes: WatchedEpisode[];
+
+          if (isWatched) {
+            newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
+            toast({
+                title: 'Episódio Desmarcado',
+                description: `O episódio "${episodeName}" foi removido do seu histórico.`
+            });
+          } else {
+            newWatchedEpisodes = [...watchedEpisodes, { episodeId, watchedAt: new Date().toISOString() }];
+             toast({
+                title: 'Episódio Assistido!',
+                description: `Você marcou "${episodeName}" como assistido.`
+            });
+          }
+          
           return { ...show, watched_episodes: newWatchedEpisodes };
         }
         return show;
@@ -94,7 +106,7 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
       updateLocalStorage(updatedShows);
       return updatedShows;
     });
-  }, []);
+  }, [toast]);
 
   return (
     <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow, toggleWatchedEpisode }}>

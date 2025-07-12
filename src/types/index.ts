@@ -14,11 +14,16 @@ export type Icon = {
   icon: LucideIcon;
 };
 
+export type WatchedEpisode = {
+    episodeId: string;
+    watchedAt: string; // ISO 8601 date string
+}
+
 export type Show = {
   id: number;
   name: string;
   poster_path: string | null;
-  watched_episodes?: string[];
+  watched_episodes?: WatchedEpisode[];
 }
 
 export interface TMDbSearchResult {

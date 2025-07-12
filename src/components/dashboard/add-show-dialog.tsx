@@ -32,7 +32,7 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
   const [results, setResults] = React.useState<TMDbSearchResult[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
-  const { addShow } = useShows();
+  const { addShow, shows } = useShows();
   const { toast } = useToast();
 
   const performSearch = React.useCallback(async (searchQuery: string) => {
@@ -78,28 +78,27 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
   };
   
   const handleSuggest = async () => {
-    if (!query) {
-       toast({
-        variant: 'destructive',
-        title: 'Campo vazio',
-        description: 'Por favor, descreva o tipo de série que você procura.',
-      });
-      return;
-    }
     setIsSuggesting(true);
     setResults([]);
     try {
-        const suggestions = await suggestShows({ prompt: query });
-        toast({
-            title: 'Sugestões da IA',
-            description: `Encontramos ${suggestions.recommendations.length} séries para você!`,
-        });
+        const watchedShows = shows.map(s => s.name);
+        const suggestions = await suggestShows({ prompt: query, watchedShows });
 
-        // Search for each suggestion on TMDb to get full details
+        if (suggestions.recommendations.length === 0) {
+            toast({
+                title: 'Nenhuma sugestão nova',
+                description: `Não encontramos novas sugestões baseadas na sua busca. Tente algo diferente!`,
+            });
+        } else {
+             toast({
+                title: 'Sugestões da IA',
+                description: `Encontramos ${suggestions.recommendations.length} séries para você!`,
+            });
+        }
+
         const searchPromises = suggestions.recommendations.map(rec => searchShows(`${rec.name} ${rec.year}`));
         const searchResults = await Promise.all(searchPromises);
         
-        // Flatten results and filter out shows that might not match exactly
         const finalResults = searchResults.map((res, index) => {
             const bestMatch = res.find(show => show.name.toLowerCase().includes(suggestions.recommendations[index].name.toLowerCase()));
             return bestMatch;
@@ -125,7 +124,7 @@ export function AddShowDialog({ open, onOpenChange }: AddShowDialogProps) {
         <DialogHeader>
           <DialogTitle>Adicionar Série</DialogTitle>
           <DialogDescription>
-            Busque pelo nome da série ou descreva o que você gosta e use a IA para sugestões.
+            Busque ou descreva o que você gosta e use a IA para sugestões baseadas no que você já assiste.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">

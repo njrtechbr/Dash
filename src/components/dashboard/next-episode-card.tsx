@@ -5,11 +5,11 @@ import Image from 'next/image';
 import { format, isToday, isTomorrow, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getShowDetails, getSeasonDetails } from '@/services/tmdb';
-import type { TMDbShowDetails, Episode, WatchProvider } from '@/types';
+import type { TMDbShowDetails, Episode, WatchProvider, WatchedEpisode } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '../ui/button';
-import { Trash2, CheckCircle2, Tv, Circle, CalendarClock } from 'lucide-react';
+import { Trash2, CheckCircle2, Tv, Circle, CalendarClock, History } from 'lucide-react';
 import { useShows } from '@/hooks/use-shows';
 import { cn } from '@/lib/utils';
 import {
@@ -21,6 +21,7 @@ import {
 
 interface NextEpisodeCardProps {
   showId: number;
+  onHistoryClick: (showName: string, episodes: WatchedEpisode[]) => void;
 }
 
 const getProviderLogo = (providerName: string) => {
@@ -38,7 +39,7 @@ const getProviderLogo = (providerName: string) => {
 }
 
 
-export function NextEpisodeCard({ showId }: NextEpisodeCardProps) {
+export function NextEpisodeCard({ showId, onHistoryClick }: NextEpisodeCardProps) {
   const [details, setDetails] = React.useState<TMDbShowDetails | null>(null);
   const [futureEpisodes, setFutureEpisodes] = React.useState<Episode[]>([]);
   const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
@@ -100,7 +101,7 @@ export function NextEpisodeCard({ showId }: NextEpisodeCardProps) {
   const nextEpisode = futureEpisodes[0];
   const isReleasedToday = nextEpisode && isToday(parseISO(nextEpisode.air_date));
   const episodeId = nextEpisode ? `S${nextEpisode.season_number}E${nextEpisode.episode_number}` : null;
-  const isWatched = episodeId ? show?.watched_episodes?.includes(episodeId) : false;
+  const isWatched = episodeId ? show?.watched_episodes?.some(e => e.episodeId === episodeId) : false;
 
   if (isLoading) {
     return <Skeleton className="h-64 w-full" />;
@@ -157,7 +158,10 @@ export function NextEpisodeCard({ showId }: NextEpisodeCardProps) {
                     data-ai-hint="movie poster"
                 />
             </div>
-             <div className="absolute top-2 right-2 z-20">
+             <div className="absolute top-2 right-2 z-20 flex gap-1">
+                 <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 bg-black/20 hover:text-white hover:bg-black/50" onClick={() => onHistoryClick(details.name, show?.watched_episodes || [])}>
+                    <History className="h-4 w-4" />
+                 </Button>
                  <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 bg-black/20 hover:text-white hover:bg-black/50" onClick={() => removeShow(details.id)}>
                     <Trash2 className="h-4 w-4" />
                 </Button>
@@ -194,7 +198,7 @@ export function NextEpisodeCard({ showId }: NextEpisodeCardProps) {
       </CardContent>
       <CardFooter className="p-4 pt-2 mt-auto flex flex-col items-start gap-2">
          {nextEpisode && episodeId && (
-            <Button variant={isWatched ? 'secondary' : 'default'} size="sm" className="w-full" onClick={() => toggleWatchedEpisode(showId, episodeId)}>
+            <Button variant={isWatched ? 'secondary' : 'default'} size="sm" className="w-full" onClick={() => toggleWatchedEpisode(showId, episodeId, nextEpisode.name)}>
                 {isWatched ? <CheckCircle2 className="mr-2 h-4 w-4"/> : <Tv className="mr-2 h-4 w-4"/>}
                 {isWatched ? 'Episódio Assistido' : 'Marcar como Assistido'}
             </Button>
