@@ -105,6 +105,9 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0">
+                <DialogTitle className="sr-only">
+                    {details?.name ?? 'Detalhes da Série'}
+                </DialogTitle>
                 {isLoading || !details ? (
                      <div className="p-6 space-y-4">
                         <Skeleton className="h-8 w-1/2" />
@@ -130,7 +133,7 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                         <div className="absolute bottom-0 left-0 p-6">
-                            <DialogTitle className="text-3xl font-bold text-foreground drop-shadow-lg">{details.name}</DialogTitle>
+                            <h2 className="text-3xl font-bold text-foreground drop-shadow-lg">{details.name}</h2>
                              <div className="flex items-center gap-4 text-sm text-background drop-shadow-sm mt-2">
                                 <Badge variant="secondary" className="bg-black/50 text-white/90 border-transparent">{details.status}</Badge>
                                  <div className="flex items-center gap-1.5"><Calendar className="h-4 w-4"/> {new Date(details.first_air_date).getFullYear()}</div>

@@ -80,6 +80,9 @@ export function MovieDetailsDialog({ open, onOpenChange, movieId }: MovieDetails
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0">
+                 <DialogTitle className="sr-only">
+                    {details?.title ?? 'Detalhes do Filme'}
+                 </DialogTitle>
                 {isLoading || !details ? (
                      <div className="p-6 space-y-4">
                         <Skeleton className="h-8 w-3/4" />
@@ -104,7 +107,7 @@ export function MovieDetailsDialog({ open, onOpenChange, movieId }: MovieDetails
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                         <div className="absolute bottom-0 left-0 p-6">
-                            <DialogTitle className="text-3xl font-bold text-foreground drop-shadow-lg">{details.title}</DialogTitle>
+                            <h2 className="text-3xl font-bold text-foreground drop-shadow-lg">{details.title}</h2>
                         </div>
                     </div>
                         
