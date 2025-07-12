@@ -41,13 +41,15 @@ export const useFinancialData = () => {
     
     const fetchData = useCallback(async () => {
         setIsLoading(true);
+        let currentError: string | null = null;
+        let finalData: Record<string, FinancialInfo> = {};
 
         try {
             const lastFetch = localStorage.getItem('financialLastFetch');
             const cachedData = localStorage.getItem('financialData');
             
             if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
-                const parsedCache = JSON.parse(cachedData);
+                const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
                  if (CODES.every(code => parsedCache[code]) && STOCKS.every(stock => parsedCache[stock])) {
                     setFinancialData(parsedCache);
                     setFinancialError(null);
@@ -57,57 +59,75 @@ export const useFinancialData = () => {
             }
             
             // Fetch Currencies
-            const currencyResponse = await fetch(`${AWESOME_API_URL}${CODES.join(',')}`);
-            if (!currencyResponse.ok) throw new Error('Falha ao buscar cotações de moedas.');
-            const currencyData = await currencyResponse.json();
+            try {
+                const currencyResponse = await fetch(`${AWESOME_API_URL}${CODES.join(',')}`);
+                if (!currencyResponse.ok) throw new Error('Falha ao buscar cotações de moedas.');
+                const currencyData = await currencyResponse.json();
+                Object.keys(currencyData).forEach(key => {
+                    const itemData = currencyData[key];
+                    const code = itemData.code + '-' + itemData.codein;
+                    const change = parseFloat(itemData.pctChange);
+                    finalData[code] = {
+                        value: formatCurrencyValue(code, itemData),
+                        name: itemData.name.split('/')[0],
+                        change: `${change.toFixed(2)}%`,
+                        isPositive: change >= 0,
+                    };
+                });
+            } catch (error) {
+                console.error("Currency fetch error:", error);
+                if (error instanceof Error) currentError = error.message;
+                 const cached = localStorage.getItem('financialData');
+                 if(cached) {
+                    const parsedCache = JSON.parse(cached) as Record<string, FinancialInfo>;
+                    CODES.forEach(code => {
+                        if(parsedCache[code]) finalData[code] = parsedCache[code];
+                    })
+                 }
+            }
+
 
             // Fetch Stocks
-            const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
-            if (!stockResponse.ok) throw new Error('Falha ao buscar dados de ações.');
-            const stockData = await stockResponse.json();
+            try {
+                const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
+                if (!stockResponse.ok) throw new Error('Falha ao buscar dados de ações.');
+                const stockData = await stockResponse.json();
+                stockData.results.forEach((item: any) => {
+                    const change = item.regularMarketChangePercent;
+                    finalData[item.symbol] = {
+                        value: formatStockValue(item),
+                        name: item.longName,
+                        change: `${change.toFixed(2)}%`,
+                        isPositive: change >= 0,
+                    };
+                });
+            } catch(error) {
+                 console.error("Stock fetch error:", error);
+                 if (error instanceof Error && !currentError) currentError = error.message;
+                 const cached = localStorage.getItem('financialData');
+                 if(cached) {
+                    const parsedCache = JSON.parse(cached) as Record<string, FinancialInfo>;
+                    STOCKS.forEach(stock => {
+                        if(parsedCache[stock]) finalData[stock] = parsedCache[stock];
+                    })
+                 }
+            }
 
-            const formattedData: Record<string, FinancialInfo> = {};
-            
-            // Process Currencies
-            Object.keys(currencyData).forEach(key => {
-                const itemData = currencyData[key];
-                const code = itemData.code + '-' + itemData.codein;
-                const change = parseFloat(itemData.pctChange);
-                formattedData[code] = {
-                    value: formatCurrencyValue(code, itemData),
-                    name: itemData.name.split('/')[0],
-                    change: `${change.toFixed(2)}%`,
-                    isPositive: change >= 0,
-                };
-            });
+            if (Object.keys(finalData).length > 0) {
+                 setFinancialData(finalData);
+                 localStorage.setItem('financialData', JSON.stringify(finalData));
+                 localStorage.setItem('financialLastFetch', new Date().getTime().toString());
+            }
 
-            // Process Stocks
-            stockData.results.forEach((item: any) => {
-                const change = item.regularMarketChangePercent;
-                formattedData[item.symbol] = {
-                    value: formatStockValue(item),
-                    name: item.longName,
-                    change: `${change.toFixed(2)}%`,
-                    isPositive: change >= 0,
-                };
-            });
-            
-            setFinancialData(formattedData);
-            localStorage.setItem('financialData', JSON.stringify(formattedData));
-            localStorage.setItem('financialLastFetch', new Date().getTime().toString());
-            setFinancialError(null);
+            setFinancialError(currentError);
 
         } catch (error) {
+            console.error("General fetch error:", error);
             if (error instanceof Error) {
                 setFinancialError(error.message);
             } else {
                 setFinancialError('Ocorreu um erro desconhecido.');
             }
-            const cachedData = localStorage.getItem('financialData');
-            if (cachedData) {
-                setFinancialData(JSON.parse(cachedData));
-            }
-            console.error(error);
         } finally {
             setIsLoading(false);
         }
