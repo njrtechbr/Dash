@@ -4,7 +4,8 @@ import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-
+import { Wand2, Loader2 } from 'lucide-react';
+import { suggestIcon } from '@/ai/flows/suggest-icon-flow';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './icon-picker';
 import type { LinkItem } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   title: z.string().min(1, { message: 'Título é obrigatório.' }),
@@ -48,6 +50,9 @@ export function LinkDialog({
   onSave,
   linkToEdit,
 }: LinkDialogProps) {
+  const [isSuggesting, setIsSuggesting] = React.useState(false);
+  const { toast } = useToast();
+  
   const form = useForm<LinkFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -77,6 +82,41 @@ export function LinkDialog({
       }
     }
   }, [linkToEdit, form, open]);
+
+  const handleSuggestIcon = async () => {
+    const { title, url } = form.getValues();
+    if (!title || !url) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados Incompletos',
+        description: 'Por favor, preencha o Título e a URL para sugerir um ícone.',
+      });
+      return;
+    }
+
+    setIsSuggesting(true);
+    try {
+      const result = await suggestIcon({ title, url });
+      if (result && result.iconName) {
+        form.setValue('icon', result.iconName, { shouldValidate: true });
+        toast({
+          title: 'Ícone Sugerido!',
+          description: `O ícone "${result.iconName}" foi selecionado para você.`,
+        });
+      } else {
+        throw new Error('Não foi possível obter uma sugestão.');
+      }
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Erro na Sugestão',
+        description: 'Não foi possível sugerir um ícone. Tente novamente.',
+      });
+      console.error(error);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   const handleSubmit = (data: LinkFormData) => {
     onSave(data, linkToEdit?.id);
@@ -140,7 +180,23 @@ export function LinkDialog({
               name="icon"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ícone</FormLabel>
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Ícone</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSuggestIcon}
+                      disabled={isSuggesting}
+                    >
+                      {isSuggesting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="mr-2 h-4 w-4" />
+                      )}
+                      Sugerir
+                    </Button>
+                  </div>
                   <FormControl>
                     <IconPicker value={field.value} onChange={field.onChange} />
                   </FormControl>
