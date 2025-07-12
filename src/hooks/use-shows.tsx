@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import type { Show, WatchedEpisode } from '@/types';
 import { useToast } from './use-toast';
 
+const STORAGE_KEY = 'fluxdash-shows';
+
 interface ShowsContextType {
   shows: Show[];
   isLoaded: boolean;
@@ -92,7 +94,7 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
                 description: `O episódio "${episodeName}" foi removido do seu histórico.`
             });
           } else {
-            newWatchedEpisodes = [...watchedEpisodes, { episodeId, watchedAt: new Date().toISOString() }];
+            newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName, watchedAt: new Date().toISOString() }];
              toast({
                 title: 'Episódio Assistido!',
                 description: `Você marcou "${episodeName}" como assistido.`

@@ -30,7 +30,7 @@ export function WatchedHistoryDialog({ open, onOpenChange, history }: WatchedHis
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Histórico de {history?.showName}</DialogTitle>
           <DialogDescription>
@@ -47,9 +47,9 @@ export function WatchedHistoryDialog({ open, onOpenChange, history }: WatchedHis
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sortedEpisodes.map(({ episodeId, watchedAt }) => (
+                    {sortedEpisodes.map(({ episodeId, episodeName, watchedAt }) => (
                          <TableRow key={episodeId}>
-                            <TableCell className="font-medium">{episodeId}</TableCell>
+                            <TableCell className="font-medium">{episodeName}</TableCell>
                             <TableCell className="text-right">{format(parseISO(watchedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</TableCell>
                         </TableRow>
                     ))}

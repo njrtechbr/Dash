@@ -16,6 +16,7 @@ export type Icon = {
 
 export type WatchedEpisode = {
     episodeId: string;
+    episodeName: string;
     watchedAt: string; // ISO 8601 date string
 }
 
