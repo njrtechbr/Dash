@@ -19,10 +19,7 @@ const formatValue = (code: string, data: any): string => {
             return parseFloat(data.bid).toFixed(2);
         case 'BTC-BRL':
              return parseFloat(data.bid).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        case 'IBOV':
-            // A API de cotações parece não ter mais IBOV, mas mantemos a lógica
-            // Em um caso real, usaríamos uma API específica para B3
-            return parseFloat(data.pctChange).toFixed(2);
+        // O endpoint IBOV foi removido da API pública, então a lógica foi removida.
         default:
             return data.bid ? parseFloat(data.bid).toFixed(2) : 'N/A';
     }
@@ -37,18 +34,33 @@ export const useFinancialData = (codes: string[]) => {
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
+        // Não busca se não houver códigos
+        if (!codesString) {
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const lastFetch = localStorage.getItem('financialLastFetch');
             const cachedData = localStorage.getItem('financialData');
             
             if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
-                setFinancialData(JSON.parse(cachedData));
-                setIsLoading(false);
-                return;
+                const parsedCache = JSON.parse(cachedData);
+                // Garante que o cache só é usado se contiver os dados esperados
+                if(codes.every(code => parsedCache[code])) {
+                  setFinancialData(parsedCache);
+                  setIsLoading(false);
+                  return;
+                }
             }
 
             const response = await fetch(`${API_URL}${codesString}`);
             if (!response.ok) {
+                const errorText = await response.text();
+                // A API retorna 404 se um dos códigos for inválido (como IBOV)
+                if (response.status === 404 && errorText.includes('Coin not found')) {
+                    throw new Error('Uma ou mais moedas não foram encontradas.');
+                }
                 throw new Error('Falha ao buscar dados financeiros.');
             }
             
@@ -57,18 +69,17 @@ export const useFinancialData = (codes: string[]) => {
             const formattedData: Record<string, FinancialInfo> = {};
             
             Object.keys(data).forEach(key => {
-                const code = data[key].code + '-' + data[key].codein;
-                // Para o IBOV que não segue o padrão
-                const lookupKey = codes.find(c => c.startsWith(data[key].code)) || code;
+                const itemData = data[key];
+                const code = itemData.code + '-' + itemData.codein;
 
-                formattedData[lookupKey] = {
-                    value: formatValue(lookupKey, data[key]),
-                    name: data[key].name,
+                formattedData[code] = {
+                    value: formatValue(code, itemData),
+                    name: itemData.name,
                 };
             });
             
             setFinancialData(formattedData);
-            localStorage.setItem('financialData', JSON.stringify(formattedData));
+localStorage.setItem('financialData', JSON.stringify(formattedData));
             localStorage.setItem('financialLastFetch', new Date().getTime().toString());
             setFinancialError(null);
 
@@ -78,11 +89,16 @@ export const useFinancialData = (codes: string[]) => {
             } else {
                 setFinancialError('Ocorreu um erro desconhecido.');
             }
+            // Tenta carregar dados do cache em caso de erro de rede
+            const cachedData = localStorage.getItem('financialData');
+            if (cachedData) {
+                setFinancialData(JSON.parse(cachedData));
+            }
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    }, [codesString]);
+    }, [codesString, codes]);
 
     useEffect(() => {
         fetchData();

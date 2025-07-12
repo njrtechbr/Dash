@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, TrendingUp, CandlestickChart, Bitcoin, Euro } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, TrendingUp, Bitcoin, Euro } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
@@ -24,8 +24,8 @@ const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading }: { titl
         </CardHeader>
         <CardContent>
             {isLoading && <Skeleton className="h-8 w-24" />}
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            {value && !isLoading && !error && <div className="text-2xl font-bold">{value}</div>}
+            {error && !value && <p className="text-xs text-destructive">{error}</p>}
+            {value && !isLoading && <div className="text-2xl font-bold">{value}</div>}
             <p className="text-xs text-muted-foreground">{footer}</p>
         </CardContent>
     </Card>
@@ -42,7 +42,7 @@ export default function Dashboard() {
 
   const { toast } = useToast();
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
-  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData(['USD-BRL', 'EUR-BRL', 'BTC-BRL', 'IBOV']);
+  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData(['USD-BRL', 'EUR-BRL', 'BTC-BRL']);
   const { time, date } = useTime();
 
   const handleAddClick = () => {
@@ -132,10 +132,10 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <InfoCard 
                 title="Dólar (USD)"
-                value={financialData.USDBRL ? `R$ ${financialData.USDBRL.value}` : null}
+                value={financialData['USD-BRL'] ? `R$ ${financialData['USD-BRL'].value}` : null}
                 icon={DollarSign}
                 footer="Cotação de compra"
                 error={financialError}
@@ -143,7 +143,7 @@ export default function Dashboard() {
             />
             <InfoCard 
                 title="Euro (EUR)"
-                value={financialData.EURBRL ? `R$ ${financialData.EURBRL.value}` : null}
+                value={financialData['EUR-BRL'] ? `R$ ${financialData['EUR-BRL'].value}` : null}
                 icon={Euro}
                 footer="Cotação de compra"
                 error={financialError}
@@ -151,17 +151,9 @@ export default function Dashboard() {
             />
             <InfoCard 
                 title="Bitcoin (BTC)"
-                value={financialData.BTCBRL ? `R$ ${financialData.BTCBRL.value}` : null}
+                value={financialData['BTC-BRL'] ? `R$ ${financialData['BTC-BRL'].value}` : null}
                 icon={Bitcoin}
                 footer="Cotação de compra"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-             <InfoCard 
-                title="Ibovespa"
-                value={financialData.IBOV ? `${financialData.IBOV.value}%` : null}
-                icon={TrendingUp}
-                footer="Variação do dia"
                 error={financialError}
                 isLoading={isFinancialLoading}
             />
@@ -173,7 +165,7 @@ export default function Dashboard() {
                 error={weatherError}
                 isLoading={isWeatherLoading}
             />
-            <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-3 xl:col-span-2">
+             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-4">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
                     <Calendar className="h-4 w-4 text-muted-foreground" />
