@@ -44,40 +44,55 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
   };
 
   const addShow = useCallback((show: Show) => {
+    let showAlreadyExists = false;
+    let showName = '';
+
     setShows((prevShows) => {
       if (prevShows.some(s => s.id === show.id)) {
-        toast({
-            variant: 'destructive',
-            title: 'Série já adicionada',
-            description: 'Você já está acompanhando esta série.'
-        })
+        showAlreadyExists = true;
         return prevShows;
       }
       const newShow = { ...show, watched_episodes: [] };
       const updatedShows = [...prevShows, newShow];
       updateLocalStorage(updatedShows);
-      toast({
-        title: 'Série Adicionada!',
-        description: `${show.name} foi adicionado ao seu painel.`
-      });
+      showName = show.name;
       return updatedShows;
     });
+
+    if (showAlreadyExists) {
+        toast({
+            variant: 'destructive',
+            title: 'Série já adicionada',
+            description: 'Você já está acompanhando esta série.'
+        });
+    } else {
+        toast({
+            title: 'Série Adicionada!',
+            description: `${showName} foi adicionado ao seu painel.`
+        });
+    }
   }, [toast]);
 
   const removeShow = useCallback((showId: number) => {
+    let showName = '';
+    
     setShows((prevShows) => {
       const showToRemove = prevShows.find(s => s.id === showId);
+      if (showToRemove) {
+          showName = showToRemove.name;
+      }
       const updatedShows = prevShows.filter((s) => s.id !== showId);
       updateLocalStorage(updatedShows);
-      if (showToRemove) {
-        toast({
-            variant: 'destructive',
-            title: 'Série Removida',
-            description: `${showToRemove.name} foi removido do seu painel.`
-        });
-      }
       return updatedShows;
     });
+
+    if (showName) {
+      toast({
+          variant: 'destructive',
+          title: 'Série Removida',
+          description: `${showName} foi removido do seu painel.`
+      });
+    }
   }, [toast]);
 
  const toggleWatchedEpisode = useCallback((showId: number, episode: Episode, isWatched: boolean) => {
