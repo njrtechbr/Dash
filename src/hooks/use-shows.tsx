@@ -1,169 +1,148 @@
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Show, WatchedEpisode, Episode } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 
-const STORAGE_KEY = 'fluxdash-shows';
-
-interface ShowsContextType {
+interface ShowsState {
   shows: Show[];
   isLoaded: boolean;
-  addShow: (show: Show) => void;
+  showDetailsId: number | null;
+  isShowDetailsOpen: boolean;
+  addShow: (show: Omit<Show, 'watched_episodes'>) => void;
   removeShow: (showId: number) => void;
   toggleWatchedEpisode: (showId: number, episode: Episode, isWatched: boolean) => void;
   toggleSeasonWatched: (showId: number, episodes: Episode[], markAsWatched: boolean) => void;
+  handleShowDetailsClick: (showId: number) => void;
+  setShowDetailsOpen: (isOpen: boolean) => void;
 }
 
-const ShowsContext = createContext<ShowsContextType | undefined>(undefined);
+export const useShows = create<ShowsState>()(
+  persist(
+    (set, get) => ({
+      shows: [],
+      isLoaded: false,
+      showDetailsId: null,
+      isShowDetailsOpen: false,
 
-export function ShowsProvider({ children }: { children: ReactNode }) {
-  const [shows, setShows] = useState<Show[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    try {
-      const storedShows = window.localStorage.getItem(STORAGE_KEY);
-      if (storedShows) {
-        setShows(JSON.parse(storedShows));
-      }
-    } catch (error) {
-      console.error('Failed to load shows from local storage:', error);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  const updateLocalStorage = (updatedShows: Show[]) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedShows));
-    } catch (error)
-      {
-      console.error('Failed to save shows to local storage:', error);
-    }
-  };
-
-  const addShow = useCallback((show: Show) => {
-    let showAlreadyExists = false;
-    let showName = '';
-
-    setShows((prevShows) => {
-      if (prevShows.some(s => s.id === show.id)) {
-        showAlreadyExists = true;
-        return prevShows;
-      }
-      const newShow = { ...show, watched_episodes: [] };
-      const updatedShows = [...prevShows, newShow];
-      updateLocalStorage(updatedShows);
-      showName = show.name;
-      return updatedShows;
-    });
-
-    if (showAlreadyExists) {
-        toast({
+      addShow: (show) => {
+        const state = get();
+        if (state.shows.some(s => s.id === show.id)) {
+          toast({
             variant: 'destructive',
             title: 'Série já adicionada',
             description: 'Você já está acompanhando esta série.'
-        });
-    } else {
-        toast({
-            title: 'Série Adicionada!',
-            description: `${showName} foi adicionado ao seu painel.`
-        });
-    }
-  }, [toast]);
-
-  const removeShow = useCallback((showId: number) => {
-    let showName = '';
-    
-    setShows((prevShows) => {
-      const showToRemove = prevShows.find(s => s.id === showId);
-      if (showToRemove) {
-          showName = showToRemove.name;
-      }
-      const updatedShows = prevShows.filter((s) => s.id !== showId);
-      updateLocalStorage(updatedShows);
-      return updatedShows;
-    });
-
-    if (showName) {
-      toast({
-          variant: 'destructive',
-          title: 'Série Removida',
-          description: `${showName} foi removido do seu painel.`
-      });
-    }
-  }, [toast]);
-
- const toggleWatchedEpisode = useCallback((showId: number, episode: Episode, isWatched: boolean) => {
-    const episodeId = `S${episode.season_number}E${episode.episode_number}`;
-    
-    setShows(prevShows => {
-      const updatedShows = prevShows.map(show => {
-        if (show.id === showId) {
-          const watchedEpisodes = show.watched_episodes || [];
-          let newWatchedEpisodes: WatchedEpisode[];
-
-          if (isWatched) {
-             // Avoid adding duplicates
-            if (watchedEpisodes.some(e => e.episodeId === episodeId)) {
-                return show;
-            }
-            newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName: episode.name, watchedAt: new Date().toISOString() }];
-          } else {
-            newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
-          }
-          
-          return { ...show, watched_episodes: newWatchedEpisodes };
+          });
+          return;
         }
-        return show;
-      });
-      updateLocalStorage(updatedShows);
-      return updatedShows;
-    });
-  }, []);
+        set(prevState => ({
+          shows: [...prevState.shows, { ...show, watched_episodes: [] }]
+        }));
+        toast({
+          title: 'Série Adicionada!',
+          description: `${show.name} foi adicionado ao seu painel.`
+        });
+      },
 
-  const toggleSeasonWatched = useCallback((showId: number, seasonEpisodes: Episode[], markAsWatched: boolean) => {
-    setShows(prevShows => {
-        const updatedShows = prevShows.map(show => {
+      removeShow: (showId) => {
+        const showToRemove = get().shows.find(s => s.id === showId);
+        if (showToRemove) {
+          set(state => ({
+            shows: state.shows.filter(s => s.id !== showId)
+          }));
+          toast({
+            variant: 'destructive',
+            title: 'Série Removida',
+            description: `${showToRemove.name} foi removido do seu painel.`
+          });
+        }
+      },
+
+      toggleWatchedEpisode: (showId, episode, isWatched) => {
+        const episodeId = `S${episode.season_number}E${episode.episode_number}`;
+        set(state => ({
+          shows: state.shows.map(show => {
             if (show.id === showId) {
-                let watchedEpisodes = show.watched_episodes || [];
+              const watchedEpisodes = show.watched_episodes || [];
+              let newWatchedEpisodes: WatchedEpisode[];
 
-                if (markAsWatched) {
-                    const episodesToAdd = seasonEpisodes
-                        .map(ep => ({
-                            episodeId: `S${ep.season_number}E${ep.episode_number}`,
-                            episodeName: ep.name,
-                            watchedAt: new Date().toISOString()
-                        }))
-                        .filter(epToAdd => !watchedEpisodes.some(existingEp => existingEp.episodeId === epToAdd.episodeId));
-                    
-                    watchedEpisodes = [...watchedEpisodes, ...episodesToAdd];
-                } else {
-                    const seasonEpisodeIds = new Set(seasonEpisodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
-                    watchedEpisodes = watchedEpisodes.filter(ep => !seasonEpisodeIds.has(ep.episodeId));
-                }
-
-                return { ...show, watched_episodes: watchedEpisodes };
+              if (isWatched) {
+                if (watchedEpisodes.some(e => e.episodeId === episodeId)) return show;
+                newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName: episode.name, watchedAt: new Date().toISOString() }];
+              } else {
+                newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
+              }
+              return { ...show, watched_episodes: newWatchedEpisodes };
             }
             return show;
-        });
-        updateLocalStorage(updatedShows);
-        return updatedShows;
-    });
-  }, []);
+          })
+        }));
+      },
+
+      toggleSeasonWatched: (showId, seasonEpisodes, markAsWatched) => {
+        set(state => ({
+          shows: state.shows.map(show => {
+            if (show.id === showId) {
+              let watchedEpisodes = show.watched_episodes || [];
+
+              if (markAsWatched) {
+                const episodesToAdd = seasonEpisodes
+                  .map(ep => ({
+                    episodeId: `S${ep.season_number}E${ep.episode_number}`,
+                    episodeName: ep.name,
+                    watchedAt: new Date().toISOString()
+                  }))
+                  .filter(epToAdd => !watchedEpisodes.some(existingEp => existingEp.episodeId === epToAdd.episodeId));
+                watchedEpisodes = [...watchedEpisodes, ...episodesToAdd];
+              } else {
+                const seasonEpisodeIds = new Set(seasonEpisodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
+                watchedEpisodes = watchedEpisodes.filter(ep => !seasonEpisodeIds.has(ep.episodeId));
+              }
+              return { ...show, watched_episodes: watchedEpisodes };
+            }
+            return show;
+          })
+        }));
+      },
+
+      handleShowDetailsClick: (showId: number) => {
+        set({ showDetailsId: showId, isShowDetailsOpen: true });
+      },
+
+      setShowDetailsOpen: (isOpen: boolean) => {
+        set({ isShowDetailsOpen: isOpen });
+        if (!isOpen) {
+          set({ showDetailsId: null });
+        }
+      },
+    }),
+    {
+      name: 'fluxdash-shows',
+      storage: createJSONStorage(() => localStorage),
+       onRehydrateStorage: () => (state) => {
+        if (state) state.isLoaded = true;
+      },
+    }
+  )
+);
+
+
+// This component can be placed in your layout to handle dialogs globally
+export function ShowDialogManager() {
+  const { isShowDetailsOpen, setShowDetailsOpen, showDetailsId } = useShows();
+  // Using require to avoid circular dependency issues at build time
+  const ShowDetailsDialog = require('@/components/dashboard/show-details-dialog').ShowDetailsDialog;
 
   return (
-    <ShowsContext.Provider value={{ shows, isLoaded, addShow, removeShow, toggleWatchedEpisode, toggleSeasonWatched }}>
-      {children}
-    </ShowsContext.Provider>
+    <>
+      {showDetailsId && (
+        <ShowDetailsDialog
+          open={isShowDetailsOpen}
+          onOpenChange={setShowDetailsOpen}
+          showId={showDetailsId}
+        />
+      )}
+    </>
   );
-};
-
-export const useShows = (): ShowsContextType => {
-  const context = useContext(ShowsContext);
-  if (context === undefined) {
-    throw new Error('useShows must be used within a ShowsProvider');
-  }
-  return context;
-};
+}

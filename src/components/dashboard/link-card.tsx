@@ -49,7 +49,7 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
         className={cn(
             'h-36 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-105 hover:-translate-y-1 hover:border-primary/50',
             isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
-            'bg-card shadow-md hover:shadow-primary/20 flex flex-col'
+            'bg-card/80 backdrop-blur-sm shadow-md hover:shadow-primary/20 flex flex-col'
         )}
       >
         <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center flex-grow">

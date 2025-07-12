@@ -26,7 +26,7 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
   const [watchProviders, setWatchProviders] = React.useState<WatchProvider[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const { shows, removeShow } = useShows();
+  const { shows } = useShows();
   const [progress, setProgress] = React.useState(0);
 
   const currentShow = shows.find(s => s.id === show.id);
@@ -87,22 +87,22 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
   }
 
   if (isLoading) {
-    return <Skeleton className="h-[22rem] w-full" />;
+    return <Skeleton className="h-[22rem] w-full bg-muted/50" />;
   }
 
   if (error || !details) {
     return (
-        <Card className="flex flex-col h-[22rem] bg-destructive/10 border-destructive">
+        <Card className="flex flex-col h-[22rem] bg-destructive/20 border-destructive text-destructive-foreground">
             <CardHeader>
-                <CardTitle className="text-destructive text-base">Erro ao Carregar</CardTitle>
+                <CardTitle className="text-base">Erro ao Carregar</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-sm text-destructive">{error || 'Não foi possível encontrar a série.'}</p>
+                <p className="text-sm">{error || 'Não foi possível encontrar a série.'}</p>
             </CardContent>
             <CardFooter className="mt-auto">
-                 <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/20" onClick={(e) => {
+                 <Button variant="ghost" size="sm" className="text-destructive-foreground hover:bg-destructive/20" onClick={(e) => {
                     e.stopPropagation();
-                    removeShow(show.id);
+                    useShows.getState().removeShow(show.id);
                  }}>
                     Remover
                 </Button>
@@ -113,7 +113,7 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
 
   return (
     <Card 
-        className={cn("flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer")}
+        className={cn("flex flex-col h-[22rem] overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 relative group cursor-pointer bg-card/80 backdrop-blur-sm")}
         onClick={() => onCardClick(details.id)}
     >
        {isReleasedToday && <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-20 animate-pulse">LANÇAMENTO HOJE</div>}
@@ -135,7 +135,7 @@ export function NextEpisodeCard({ show, onCardClick }: NextEpisodeCardProps) {
              ) : (
                 <div className='w-full h-full bg-secondary'/>
              )}
-             <div className='absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent'/>
+             <div className='absolute inset-0 bg-gradient-to-t from-card/30 via-card/70 to-card'/>
              <div className="absolute -bottom-8 left-4 z-10">
                  <Image
                     src={details.poster_path ? `https://image.tmdb.org/t/p/w154${details.poster_path}` : 'https://placehold.co/92x138.png'}

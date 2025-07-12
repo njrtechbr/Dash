@@ -3,58 +3,66 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { AVAILABLE_CARDS } from '@/lib/dashboard-cards';
 
-const STORAGE_KEY = 'fluxdash-dashboard-settings';
+const STORAGE_KEY = 'fluxdash-dashboard-settings-v2';
 
 const DEFAULT_ACTIVE_CARDS = ['USD-BRL', 'EUR-BRL', 'weather', 'time'];
 
+interface DashboardSettings {
+    activeCardIds: string[];
+    backgroundUrl: string | null;
+}
+
 interface DashboardSettingsContextType {
-  activeCardIds: string[];
-  setActiveCardIds: (ids: string[]) => void;
+  settings: DashboardSettings;
+  setSettings: (settings: DashboardSettings) => void;
   isLoaded: boolean;
 }
+
+const DEFAULT_SETTINGS: DashboardSettings = {
+    activeCardIds: DEFAULT_ACTIVE_CARDS,
+    backgroundUrl: null,
+};
 
 const DashboardSettingsContext = createContext<DashboardSettingsContextType | undefined>(undefined);
 
 export function DashboardSettingsProvider({ children }: { children: ReactNode }) {
-  const [activeCardIds, setActiveCardIdsState] = useState<string[]>([]);
+  const [settings, setSettingsState] = useState<DashboardSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     try {
       const storedSettings = window.localStorage.getItem(STORAGE_KEY);
       if (storedSettings) {
-        const parsedSettings = JSON.parse(storedSettings);
-        // Validate that saved IDs are still valid cards
-        const validIds = parsedSettings.activeCardIds.filter((id: string) => 
+        const parsedSettings = JSON.parse(storedSettings) as Partial<DashboardSettings>;
+        
+        const validIds = parsedSettings.activeCardIds?.filter((id: string) => 
             AVAILABLE_CARDS.some(card => card.id === id)
-        );
-        setActiveCardIdsState(validIds);
+        ) || DEFAULT_ACTIVE_CARDS;
+        
+        setSettingsState({
+            activeCardIds: validIds,
+            backgroundUrl: parsedSettings.backgroundUrl || null,
+        });
       } else {
-        // Set default cards for new users
-        setActiveCardIdsState(DEFAULT_ACTIVE_CARDS);
+        setSettingsState(DEFAULT_SETTINGS);
       }
     } catch (error) {
       console.error('Failed to load dashboard settings from local storage:', error);
-      setActiveCardIdsState(DEFAULT_ACTIVE_CARDS);
+      setSettingsState(DEFAULT_SETTINGS);
     }
     setIsLoaded(true);
   }, []);
 
-  const updateLocalStorage = (updatedIds: string[]) => {
+  const setSettings = useCallback((newSettings: DashboardSettings) => {
+    setSettingsState(newSettings);
     try {
-      const settings = { activeCardIds: updatedIds };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
     } catch (error) {
       console.error('Failed to save dashboard settings to local storage:', error);
     }
-  };
-
-  const setActiveCardIds = useCallback((ids: string[]) => {
-    setActiveCardIdsState(ids);
-    updateLocalStorage(ids);
   }, []);
   
-  const value = { activeCardIds, setActiveCardIds, isLoaded };
+  const value = { settings, setSettings, isLoaded };
 
   return (
     <DashboardSettingsContext.Provider value={value}>

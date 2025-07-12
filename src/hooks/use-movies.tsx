@@ -1,136 +1,119 @@
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Movie } from '@/types';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
-const STORAGE_KEY = 'fluxdash-movies';
-
-interface MoviesContextType {
+interface MoviesState {
   movies: Movie[];
   isLoaded: boolean;
+  movieDetailsId: number | null;
+  isMovieDetailsOpen: boolean;
   addMovie: (movie: Omit<Movie, 'watched'>) => void;
   removeMovie: (movieId: number) => void;
   toggleMovieWatched: (movieId: number) => void;
+  handleMovieDetailsClick: (movieId: number) => void;
+  setMovieDetailsOpen: (isOpen: boolean) => void;
 }
 
-const MoviesContext = createContext<MoviesContextType | undefined>(undefined);
+export const useMovies = create<MoviesState>()(
+  persist(
+    (set, get) => ({
+      movies: [],
+      isLoaded: false,
+      movieDetailsId: null,
+      isMovieDetailsOpen: false,
 
-export function MoviesProvider({ children }: { children: ReactNode }) {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    try {
-      const storedMovies = window.localStorage.getItem(STORAGE_KEY);
-      if (storedMovies) {
-        setMovies(JSON.parse(storedMovies));
-      }
-    } catch (error) {
-      console.error('Failed to load movies from local storage:', error);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  const updateLocalStorage = (updatedMovies: Movie[]) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedMovies));
-    } catch (error) {
-      console.error('Failed to save movies to local storage:', error);
-    }
-  };
-
-  const addMovie = useCallback((movie: Omit<Movie, 'watched'>) => {
-    let movieAlreadyExists = false;
-    let movieTitle = '';
-
-    setMovies((prevMovies) => {
-      if (prevMovies.some(m => m.id === movie.id)) {
-        movieAlreadyExists = true;
-        return prevMovies;
-      }
-      const newMovie = { ...movie, watched: false };
-      const updatedMovies = [...prevMovies, newMovie];
-      updateLocalStorage(updatedMovies);
-      movieTitle = movie.title;
-      return updatedMovies;
-    });
-
-    if (movieAlreadyExists) {
-        toast({
+      addMovie: (movie) => {
+        const state = get();
+        if (state.movies.some((m) => m.id === movie.id)) {
+          toast({
             variant: 'destructive',
             title: 'Filme já adicionado',
-            description: 'Você já adicionou este filme à sua lista.'
-        });
-    } else {
+            description: 'Você já adicionou este filme à sua lista.',
+          });
+          return;
+        }
+        set((prevState) => ({
+          movies: [...prevState.movies, { ...movie, watched: false }],
+        }));
         toast({
-            title: 'Filme Adicionado!',
-            description: `${movieTitle} foi adicionado à sua lista.`
+          title: 'Filme Adicionado!',
+          description: `${movie.title} foi adicionado à sua lista.`,
         });
-    }
-  }, [toast]);
+      },
 
-  const removeMovie = useCallback((movieId: number) => {
-    let movieTitle = '';
-    
-    setMovies((prevMovies) => {
-      const movieToRemove = prevMovies.find(m => m.id === movieId);
-      if (movieToRemove) {
-          movieTitle = movieToRemove.title;
-      }
-      const updatedMovies = prevMovies.filter((m) => m.id !== movieId);
-      updateLocalStorage(updatedMovies);
-      return updatedMovies;
-    });
+      removeMovie: (movieId) => {
+        const movieToRemove = get().movies.find((m) => m.id === movieId);
+        if (movieToRemove) {
+          set((state) => ({
+            movies: state.movies.filter((m) => m.id !== movieId),
+          }));
+          toast({
+            variant: 'destructive',
+            title: 'Filme Removido',
+            description: `${movieToRemove.title} foi removido da sua lista.`,
+          });
+        }
+      },
 
-    if (movieTitle) {
-      toast({
-          variant: 'destructive',
-          title: 'Filme Removido',
-          description: `${movieTitle} foi removido da sua lista.`
-      });
-    }
-  }, [toast]);
-
-  const toggleMovieWatched = useCallback((movieId: number) => {
-    let movieTitle = '';
-    let isWatched = false;
-
-    setMovies(prevMovies => {
-        const updatedMovies = prevMovies.map(movie => {
+      toggleMovieWatched: (movieId) => {
+        let movieTitle = '';
+        let isWatched = false;
+        set((state) => ({
+          movies: state.movies.map((movie) => {
             if (movie.id === movieId) {
-                movieTitle = movie.title;
-                isWatched = !movie.watched;
-                return { ...movie, watched: isWatched };
+              movieTitle = movie.title;
+              isWatched = !movie.watched;
+              return { ...movie, watched: isWatched };
             }
             return movie;
-        });
-        updateLocalStorage(updatedMovies);
-        return updatedMovies;
-    });
-    
-    if (movieTitle) {
-        toast({
+          }),
+        }));
+        if (movieTitle) {
+          toast({
             title: `Filme ${isWatched ? 'Assistido' : 'Não Assistido'}`,
-            description: `Você marcou "${movieTitle}" como ${isWatched ? 'assistido' : 'não assistido'}.`
-        })
-    }
-  }, [toast]);
+            description: `Você marcou "${movieTitle}" como ${isWatched ? 'assistido' : 'não assistido'}.`,
+          });
+        }
+      },
 
-  const value = { movies, isLoaded, addMovie, removeMovie, toggleMovieWatched };
+      handleMovieDetailsClick: (movieId: number) => {
+        set({ movieDetailsId: movieId, isMovieDetailsOpen: true });
+      },
+
+      setMovieDetailsOpen: (isOpen: boolean) => {
+        set({ isMovieDetailsOpen: isOpen });
+        if (!isOpen) {
+          set({ movieDetailsId: null });
+        }
+      },
+    }),
+    {
+      name: 'fluxdash-movies',
+      storage: createJSONStorage(() => localStorage),
+       onRehydrateStorage: () => (state) => {
+        if (state) state.isLoaded = true;
+      },
+    }
+  )
+);
+
+// This component can be placed in your layout to handle dialogs globally
+export function MovieDialogManager() {
+  const { isMovieDetailsOpen, setMovieDetailsOpen, movieDetailsId } = useMovies();
+  const MovieDetailsDialog = require('@/components/dashboard/movie-details-dialog').MovieDetailsDialog;
 
   return (
-    <MoviesContext.Provider value={value}>
-      {children}
-    </MoviesContext.Provider>
+    <>
+      {movieDetailsId && (
+        <MovieDetailsDialog
+          open={isMovieDetailsOpen}
+          onOpenChange={setMovieDetailsOpen}
+          movieId={movieDetailsId}
+        />
+      )}
+    </>
   );
-};
-
-export const useMovies = (): MoviesContextType => {
-  const context = useContext(MoviesContext);
-  if (context === undefined) {
-    throw new Error('useMovies must be used within a MoviesProvider');
-  }
-  return context;
-};
+}
