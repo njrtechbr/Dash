@@ -1,10 +1,22 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Movie, TMDbMovieDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { getMovieDetails } from '@/services/tmdb';
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  onSnapshot,
+  where,
+  getDocs,
+  writeBatch
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface MoviesState {
   movies: Movie[];
@@ -12,24 +24,39 @@ interface MoviesState {
   isLoaded: boolean;
   movieDetailsId: number | null;
   isMovieDetailsOpen: boolean;
-  addMovie: (movie: Omit<Movie, 'watched'>) => void;
-  removeMovie: (movieId: number) => void;
-  toggleMovieWatched: (movieId: number) => void;
+  initializeMovies: () => () => void;
+  addMovie: (movie: Omit<Movie, 'watched' | 'id'> & { id: number }) => void;
+  removeMovie: (movieId: number) => Promise<void>;
+  toggleMovieWatched: (movieId: number) => Promise<void>;
   handleMovieDetailsClick: (movieId: number) => void;
   setMovieDetailsOpen: (isOpen: boolean) => void;
   fetchMissingDetails: (movies: Movie[]) => Promise<void>;
 }
 
-export const useMovies = create<MoviesState>()(
-  persist(
-    (set, get) => ({
-      movies: [],
-      details: {},
-      isLoaded: false,
-      movieDetailsId: null,
-      isMovieDetailsOpen: false,
+const useMoviesStore = create<MoviesState>((set, get) => ({
+    movies: [],
+    details: {},
+    isLoaded: false,
+    movieDetailsId: null,
+    isMovieDetailsOpen: false,
 
-      fetchMissingDetails: async (movies) => {
+    initializeMovies: () => {
+        const q = query(collection(db, 'movies'));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const movies: Movie[] = [];
+            querySnapshot.forEach((doc) => {
+                movies.push({ id: doc.id, ...doc.data() } as Movie);
+            });
+            set({ movies });
+            get().fetchMissingDetails(movies);
+        }, (error) => {
+            console.error("Error fetching movies: ", error);
+            set({ isLoaded: true });
+        });
+        return unsubscribe;
+    },
+
+    fetchMissingDetails: async (movies) => {
         const state = get();
         const moviesToFetch = movies.filter(movie => !state.details[movie.id]);
 
@@ -52,92 +79,101 @@ export const useMovies = create<MoviesState>()(
             details: { ...prevState.details, ...newDetails },
             isLoaded: true 
         }));
-      },
+    },
 
-      addMovie: async (movie) => {
+    addMovie: async (movie) => {
         const state = get();
         if (state.movies.some((m) => m.id === movie.id)) {
-          toast({
-            variant: 'destructive',
-            title: 'Filme já adicionado',
-            description: 'Você já adicionou este filme à sua lista.',
-          });
-          return;
-        }
-        const newMovie = { ...movie, watched: false };
-        set((prevState) => ({
-          movies: [...prevState.movies, newMovie],
-        }));
-        
-        // Fetch details for the new movie
-        const movieDetails = await getMovieDetails(movie.id);
-        if (movieDetails) {
-            set(prevState => ({
-                details: { ...prevState.details, [movie.id]: movieDetails }
-            }));
+            toast({
+                variant: 'destructive',
+                title: 'Filme já adicionado',
+                description: 'Você já adicionou este filme à sua lista.',
+            });
+            return;
         }
 
-        toast({
-          title: 'Filme Adicionado!',
-          description: `${movie.title} foi adicionado à sua lista.`,
-        });
-      },
+        try {
+            await addDoc(collection(db, 'movies'), {
+                ...movie,
+                watched: false
+            });
+            toast({
+              title: 'Filme Adicionado!',
+              description: `${movie.title} foi adicionado à sua lista.`,
+            });
+        } catch(e) {
+            console.error("Error adding movie: ", e);
+            toast({ variant: 'destructive', title: 'Erro ao adicionar filme' });
+        }
+    },
 
-      removeMovie: (movieId) => {
+    removeMovie: async (movieId) => {
         const movieToRemove = get().movies.find((m) => m.id === movieId);
         if (movieToRemove) {
-          set((state) => ({
-            movies: state.movies.filter((m) => m.id !== movieId),
-            details: Object.fromEntries(Object.entries(state.details).filter(([id]) => Number(id) !== movieId))
-          }));
-          toast({
-            variant: 'destructive',
-            title: 'Filme Removido',
-            description: `${movieToRemove.title} foi removido da sua lista.`,
-          });
-        }
-      },
+            try {
+                // Since we don't store the firestore doc id on the movie object, we query for it
+                const q = query(collection(db, "movies"), where("id", "==", movieId));
+                const querySnapshot = await getDocs(q);
+                const batch = writeBatch(db);
+                querySnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
 
-      toggleMovieWatched: (movieId) => {
-        let movieTitle = '';
-        let isWatched = false;
-        set((state) => ({
-          movies: state.movies.map((movie) => {
-            if (movie.id === movieId) {
-              movieTitle = movie.title;
-              isWatched = !movie.watched;
-              return { ...movie, watched: isWatched };
+                toast({
+                    variant: 'destructive',
+                    title: 'Filme Removido',
+                    description: `${movieToRemove.title} foi removido da sua lista.`,
+                });
+            } catch (e) {
+                console.error("Error removing movie: ", e);
+                toast({ variant: 'destructive', title: 'Erro ao remover filme' });
             }
-            return movie;
-          }),
-        }));
-        if (movieTitle) {
-          toast({
-            title: `Filme ${isWatched ? 'Assistido' : 'Não Assistido'}`,
-            description: `Você marcou "${movieTitle}" como ${isWatched ? 'assistido' : 'não assistido'}.`,
-          });
         }
-      },
+    },
 
-      handleMovieDetailsClick: (movieId: number) => {
+    toggleMovieWatched: async (movieId) => {
+        const movieToToggle = get().movies.find((m) => m.id === movieId);
+        if (movieToToggle) {
+            try {
+                 const q = query(collection(db, "movies"), where("id", "==", movieId));
+                 const querySnapshot = await getDocs(q);
+                 const docToUpdate = querySnapshot.docs[0];
+                 
+                 if(docToUpdate) {
+                    const newWatchedState = !movieToToggle.watched;
+                    await updateDoc(docToUpdate.ref, { watched: newWatchedState });
+                    toast({
+                        title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
+                        description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
+                    });
+                 }
+            } catch(e) {
+                console.error("Error toggling watched state: ", e);
+                toast({ variant: 'destructive', title: 'Erro ao atualizar filme' });
+            }
+        }
+    },
+
+    handleMovieDetailsClick: (movieId: number) => {
         set({ movieDetailsId: movieId, isMovieDetailsOpen: true });
-      },
+    },
 
-      setMovieDetailsOpen: (isOpen: boolean) => {
+    setMovieDetailsOpen: (isOpen: boolean) => {
         set({ isMovieDetailsOpen: isOpen });
         if (!isOpen) {
-          set({ movieDetailsId: null });
+            set({ movieDetailsId: null });
         }
-      },
-    }),
-    {
-      name: 'fluxdash-movies',
-      storage: createJSONStorage(() => localStorage),
-       onRehydrateStorage: () => (state, error) => {
-        if (state) {
-            state.fetchMissingDetails(state.movies);
-        }
-      },
+    },
+}));
+
+
+let unsubscribeMovies: (() => void) | null = null;
+
+export const useMovies = () => {
+    const store = useMoviesStore();
+    if (typeof window !== 'undefined' && !unsubscribeMovies) {
+        unsubscribeMovies = store.initializeMovies();
     }
-  )
-);
+    return store;
+};

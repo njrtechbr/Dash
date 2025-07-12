@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type LinkItem = {
-  id: string;
+  id: string; // Firestore document ID
   title: string;
   url: string;
   icon: string;
@@ -25,7 +25,7 @@ export type WatchedEpisode = {
 }
 
 export type Show = {
-  id: number;
+  id: number; // TMDb ID
   name: string;
   poster_path: string | null;
   watched_episodes?: WatchedEpisode[];
@@ -116,7 +116,7 @@ export type DashboardCard = {
 
 // Movie Types
 export type Movie = {
-  id: number;
+  id: number; // TMDb ID
   title: string;
   poster_path: string | null;
   watched: boolean;
