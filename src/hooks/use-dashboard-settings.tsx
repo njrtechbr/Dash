@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { AVAILABLE_CARDS } from '@/lib/dashboard-cards';
 
-const STORAGE_KEY = 'fluxdash-dashboard-settings-v2';
+export type Theme = 'light' | 'dark' | 'system';
+
+const STORAGE_KEY = 'fluxdash-dashboard-settings-v3';
 
 const DEFAULT_ACTIVE_CARDS = ['USD-BRL', 'EUR-BRL', 'weather', 'time'];
 
 interface DashboardSettings {
     activeCardIds: string[];
     backgroundUrl: string | null;
+    theme: Theme;
 }
 
 interface DashboardSettingsContextType {
@@ -21,6 +24,7 @@ interface DashboardSettingsContextType {
 const DEFAULT_SETTINGS: DashboardSettings = {
     activeCardIds: DEFAULT_ACTIVE_CARDS,
     backgroundUrl: null,
+    theme: 'system',
 };
 
 const DashboardSettingsContext = createContext<DashboardSettingsContextType | undefined>(undefined);
@@ -42,6 +46,7 @@ export function DashboardSettingsProvider({ children }: { children: ReactNode })
         setSettingsState({
             activeCardIds: validIds,
             backgroundUrl: parsedSettings.backgroundUrl || null,
+            theme: parsedSettings.theme || 'system',
         });
       } else {
         setSettingsState(DEFAULT_SETTINGS);
@@ -78,3 +83,21 @@ export const useDashboardSettings = (): DashboardSettingsContextType => {
   }
   return context;
 };
+
+export function ThemeWrapper({ children }: { children: ReactNode }) {
+  const { settings } = useDashboardSettings();
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+
+    if (settings.theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(settings.theme);
+    }
+  }, [settings.theme]);
+
+  return <>{children}</>;
+}

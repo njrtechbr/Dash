@@ -75,7 +75,7 @@ export function AppSidebar() {
                       tooltip="Adicionar Novo Link"
                     >
                       <Plus />
-                      <span>Adicionar Link</span>
+                      <span>Novo Link</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
@@ -84,7 +84,7 @@ export function AppSidebar() {
                       tooltip="Adicionar Links em Lote"
                     >
                       <Layers />
-                      <span>Adicionar em Lote</span>
+                      <span>Links em Lote</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                    <SidebarMenuItem>

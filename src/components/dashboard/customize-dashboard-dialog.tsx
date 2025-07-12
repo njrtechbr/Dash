@@ -16,7 +16,9 @@ import { useDashboardSettings } from '@/hooks/use-dashboard-settings';
 import { AVAILABLE_CARDS } from '@/lib/dashboard-cards';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brush, LayoutGrid } from 'lucide-react';
+import { Brush, LayoutGrid, Monitor, Moon, Sun } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { type Theme } from '@/hooks/use-dashboard-settings';
 
 interface CustomizeDashboardDialogProps {
   open: boolean;
@@ -27,11 +29,13 @@ export function CustomizeDashboardDialog({ open, onOpenChange }: CustomizeDashbo
   const { settings, setSettings, isLoaded } = useDashboardSettings();
   const [selectedIds, setSelectedIds] = React.useState(new Set<string>());
   const [backgroundUrl, setBackgroundUrl] = React.useState('');
+  const [theme, setTheme] = React.useState<Theme>('system');
 
   React.useEffect(() => {
     if (open && isLoaded) {
       setSelectedIds(new Set(settings.activeCardIds));
       setBackgroundUrl(settings.backgroundUrl || '');
+      setTheme(settings.theme || 'system');
     }
   }, [open, isLoaded, settings]);
   
@@ -52,6 +56,7 @@ export function CustomizeDashboardDialog({ open, onOpenChange }: CustomizeDashbo
         ...settings,
         activeCardIds: Array.from(selectedIds),
         backgroundUrl,
+        theme,
     });
     onOpenChange(false);
   };
@@ -100,7 +105,33 @@ export function CustomizeDashboardDialog({ open, onOpenChange }: CustomizeDashbo
                 })}
                 </div>
             </TabsContent>
-            <TabsContent value="appearance" className="py-4">
+            <TabsContent value="appearance" className="py-4 space-y-6">
+                 <div className="space-y-2">
+                    <Label>Tema</Label>
+                    <RadioGroup value={theme} onValueChange={(value: Theme) => setTheme(value)} className="grid grid-cols-3 gap-2">
+                        <div>
+                            <RadioGroupItem value="light" id="light" className="peer sr-only" />
+                            <Label htmlFor="light" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                <Sun className="mb-2 h-5 w-5" />
+                                Claro
+                            </Label>
+                        </div>
+                         <div>
+                            <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
+                            <Label htmlFor="dark" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                <Moon className="mb-2 h-5 w-5" />
+                                Escuro
+                            </Label>
+                        </div>
+                         <div>
+                            <RadioGroupItem value="system" id="system" className="peer sr-only" />
+                            <Label htmlFor="system" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                <Monitor className="mb-2 h-5 w-5" />
+                                Sistema
+                            </Label>
+                        </div>
+                    </RadioGroup>
+                 </div>
                  <div className="space-y-2">
                     <Label htmlFor="background-url">URL da Imagem de Fundo</Label>
                     <Input 

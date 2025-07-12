@@ -199,8 +199,27 @@ export default function Dashboard() {
 
   return (
     <SidebarInset>
-      <div className="flex-1 p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-8">
+      <div className="flex-1 p-4 md:p-8 space-y-8">
+        {isLoaded && favoriteLinks.length > 0 && (
+            <div>
+                <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90 flex items-center gap-2"><Star className='h-6 w-6 text-yellow-400 fill-yellow-400'/> Favoritos</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                    {favoriteLinks.map((link) => (
+                        <div key={link.id}>
+                            <LinkCard
+                            link={link}
+                            onEdit={() => handleEditLink(link)}
+                            onDelete={() => handleDeleteLink(link.id)}
+                            isDragging={false}
+                            isDragOver={false}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             {!isLoaded ? (
                 Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 w-full bg-muted/50" />)
             ) : (
@@ -211,7 +230,7 @@ export default function Dashboard() {
         </div>
         
         {shows.length > 0 && (
-          <div className="mb-8">
+          <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90">Acompanhando Séries</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {shows.map(show => (
@@ -222,7 +241,7 @@ export default function Dashboard() {
         )}
         
         {movies.length > 0 && (
-          <div className="mb-8">
+          <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90">Filmes para Assistir</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {movies.map(movie => (
@@ -248,24 +267,6 @@ export default function Dashboard() {
         )}
         {isLoaded && links.length > 0 && (
             <div className="space-y-4">
-                {favoriteLinks.length > 0 && (
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90 flex items-center gap-2"><Star className='h-6 w-6 text-yellow-400 fill-yellow-400'/> Favoritos</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
-                            {favoriteLinks.map((link) => (
-                                <div key={link.id}>
-                                    <LinkCard
-                                    link={link}
-                                    onEdit={() => handleEditLink(link)}
-                                    onDelete={() => handleDeleteLink(link.id)}
-                                    isDragging={false}
-                                    isDragOver={false}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
                 <Accordion type="multiple" defaultValue={Object.keys(groupedLinks)} className="w-full space-y-4">
                     {Object.entries(groupedLinks).map(([group, groupLinks]) => (
                     <AccordionItem value={group} key={group} className="border-none">

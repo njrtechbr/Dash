@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { DashboardSettingsProvider } from '@/hooks/use-dashboard-settings';
+import { DashboardSettingsProvider, ThemeWrapper } from '@/hooks/use-dashboard-settings';
 import { DialogManagers } from '@/components/dashboard/dialog-managers';
 
 export const metadata: Metadata = {
@@ -23,8 +23,10 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <DashboardSettingsProvider>
-          {children}
-          <DialogManagers />
+          <ThemeWrapper>
+            {children}
+            <DialogManagers />
+          </ThemeWrapper>
         </DashboardSettingsProvider>
         <Toaster />
       </body>
