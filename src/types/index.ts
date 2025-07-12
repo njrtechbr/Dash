@@ -6,6 +6,7 @@ export type LinkItem = {
   url: string;
   icon: string;
   group: string;
+  description?: string;
 };
 
 export type Icon = {

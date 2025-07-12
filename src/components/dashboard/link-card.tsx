@@ -13,6 +13,8 @@ import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { findIcon } from '@/lib/icons';
 import type { LinkItem } from '@/types';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 interface LinkCardProps {
   link: LinkItem;
@@ -45,17 +47,31 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
     >
       <Card
         className={cn(
-            'h-32 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-105 hover:-translate-y-1 hover:border-primary/50',
+            'h-36 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-105 hover:-translate-y-1 hover:border-primary/50',
             isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
-            'bg-card shadow-md hover:shadow-primary/20'
+            'bg-card shadow-md hover:shadow-primary/20 flex flex-col'
         )}
       >
-        <CardContent className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+        <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center flex-grow">
           <div className="p-3 bg-primary/10 rounded-full transition-colors duration-300 group-hover:bg-primary/20">
             <Icon className="h-8 w-8 text-primary transition-transform duration-300 group-hover:scale-110" />
           </div>
-          <p className="font-semibold text-foreground truncate w-full px-2">{link.title}</p>
+           <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="font-semibold text-foreground truncate w-full px-2">{link.title}</p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{link.title}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardContent>
+        {link.description && (
+            <div className="px-3 pb-3 text-center">
+                 <p className="text-xs text-muted-foreground truncate">{link.description}</p>
+            </div>
+        )}
       </Card>
       <div className="absolute top-2 right-2" onClick={handleMenuClick}>
         <DropdownMenu>

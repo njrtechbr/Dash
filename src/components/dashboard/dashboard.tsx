@@ -169,7 +169,7 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-8">
             <InfoCard 
                 title="Dólar"
                 prefix="R$ "
@@ -214,6 +214,33 @@ export default function Dashboard() {
                 isLoading={isFinancialLoading}
             />
             <InfoCard
+                title="Clima"
+                value={weather ? `${weather.temp}°C` : null}
+                icon={Thermometer}
+                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
+                error={weatherError}
+                isLoading={isWeatherLoading}
+            />
+             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-2 xl:col-span-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                     {isWeatherLoading && <Skeleton className="h-8 w-full" />}
+                     {!isWeatherLoading && (
+                        <div className="flex items-baseline justify-between flex-wrap gap-2">
+                             <div className="text-2xl font-bold">{date}</div>
+                             <div className="text-2xl font-mono font-bold flex items-center gap-2">
+                                <Clock className="h-5 w-5 text-muted-foreground"/>
+                                {time}
+                             </div>
+                        </div>
+                     )}
+                    <p className="text-xs text-muted-foreground">Fuso horário local</p>
+                </CardContent>
+            </Card>
+            <InfoCard
                 title="NASDAQ"
                 value={financialData['IXIC']?.value}
                 change={financialData['IXIC']?.change}
@@ -233,33 +260,6 @@ export default function Dashboard() {
                 error={financialError}
                 isLoading={isFinancialLoading}
             />
-            <InfoCard
-                title="Clima"
-                value={weather ? `${weather.temp}°C` : null}
-                icon={Thermometer}
-                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
-                error={weatherError}
-                isLoading={isWeatherLoading}
-            />
-             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                     {isWeatherLoading && <Skeleton className="h-8 w-full" />}
-                     {!isWeatherLoading && (
-                        <div className="flex items-baseline justify-between flex-wrap gap-2">
-                             <div className="text-2xl font-bold">{date}</div>
-                             <div className="text-2xl font-mono font-bold flex items-center gap-2">
-                                <Clock className="h-5 w-5 text-muted-foreground"/>
-                                {time}
-                             </div>
-                        </div>
-                     )}
-                    <p className="text-xs text-muted-foreground">Fuso horário local</p>
-                </CardContent>
-            </Card>
         </div>
 
 

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Wand2, Loader2 } from 'lucide-react';
-import { suggestIcon } from '@/ai/flows/suggest-icon-flow';
+import { suggestLinkDetails } from '@/ai/flows/suggest-link-details-flow';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,12 +27,14 @@ import { Input } from '@/components/ui/input';
 import { IconPicker } from './icon-picker';
 import type { LinkItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   title: z.string().min(1, { message: 'Título é obrigatório.' }),
   url: z.string().url({ message: 'Por favor, insira uma URL válida.' }),
   icon: z.string().min(1, { message: 'Por favor, selecione um ícone.' }),
   group: z.string().min(1, { message: 'Grupo é obrigatório.' }).default('Geral'),
+  description: z.string().optional(),
 });
 
 type LinkFormData = z.infer<typeof formSchema>;
@@ -60,6 +62,7 @@ export function LinkDialog({
       url: '',
       icon: 'Link',
       group: 'Geral',
+      description: '',
     },
   });
 
@@ -71,6 +74,7 @@ export function LinkDialog({
           url: linkToEdit.url,
           icon: linkToEdit.icon,
           group: linkToEdit.group || 'Geral',
+          description: linkToEdit.description || '',
         });
       } else {
         form.reset({
@@ -78,30 +82,33 @@ export function LinkDialog({
           url: '',
           icon: 'Link',
           group: 'Geral',
+          description: '',
         });
       }
     }
   }, [linkToEdit, form, open]);
 
-  const handleSuggestIcon = async () => {
+  const handleSuggest = async () => {
     const { title, url } = form.getValues();
     if (!title || !url) {
       toast({
         variant: 'destructive',
         title: 'Dados Incompletos',
-        description: 'Por favor, preencha o Título e a URL para sugerir um ícone.',
+        description: 'Por favor, preencha o Título e a URL para usar a sugestão com IA.',
       });
       return;
     }
 
     setIsSuggesting(true);
     try {
-      const result = await suggestIcon({ title, url });
-      if (result && result.iconName) {
+      const result = await suggestLinkDetails({ title, url });
+      if (result) {
         form.setValue('icon', result.iconName, { shouldValidate: true });
+        form.setValue('group', result.group, { shouldValidate: true });
+        form.setValue('description', result.description, { shouldValidate: true });
         toast({
-          title: 'Ícone Sugerido!',
-          description: `O ícone "${result.iconName}" foi selecionado para você.`,
+          title: 'Sugestões da IA aplicadas!',
+          description: `Ícone, grupo e descrição foram preenchidos para você.`,
         });
       } else {
         throw new Error('Não foi possível obter uma sugestão.');
@@ -110,7 +117,7 @@ export function LinkDialog({
        toast({
         variant: 'destructive',
         title: 'Erro na Sugestão',
-        description: 'Não foi possível sugerir um ícone. Tente novamente.',
+        description: 'Não foi possível sugerir detalhes para o link. Tente novamente.',
       });
       console.error(error);
     } finally {
@@ -131,7 +138,7 @@ export function LinkDialog({
           <DialogDescription>
             {linkToEdit
               ? "Atualize os detalhes do seu link."
-              : "Insira os detalhes do seu novo link para adicioná-lo ao painel."}
+              : "Preencha ou use a IA para sugerir os detalhes do seu novo link."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -162,6 +169,23 @@ export function LinkDialog({
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Descrição curta sobre o link..."
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="group"
@@ -180,23 +204,7 @@ export function LinkDialog({
               name="icon"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex justify-between items-center">
-                    <FormLabel>Ícone</FormLabel>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSuggestIcon}
-                      disabled={isSuggesting}
-                    >
-                      {isSuggesting ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Wand2 className="mr-2 h-4 w-4" />
-                      )}
-                      Sugerir
-                    </Button>
-                  </div>
+                  <FormLabel>Ícone</FormLabel>
                   <FormControl>
                     <IconPicker value={field.value} onChange={field.onChange} />
                   </FormControl>
@@ -204,9 +212,25 @@ export function LinkDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit">Salvar alterações</Button>
+            <DialogFooter className="pt-4 sm:justify-between items-center">
+               <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSuggest}
+                  disabled={isSuggesting}
+                  className="w-full sm:w-auto"
+                >
+                  {isSuggesting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-2 h-4 w-4" />
+                  )}
+                  Sugerir com IA
+                </Button>
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                    <Button type="submit">Salvar</Button>
+                </div>
             </DialogFooter>
           </form>
         </Form>
