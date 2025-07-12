@@ -1,14 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro, TrendingUp, ArrowUp, ArrowDown, Activity, Landmark, Globe, Tv } from 'lucide-react';
+import { Plus, GripVertical, Layers, LayoutGrid, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
 import { LinkDialog } from './link-dialog';
 import { BatchLinkDialog } from './batch-link-dialog';
-import type { LinkItem } from '@/types';
+import type { LinkItem, DashboardCard as DashboardCardType } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,10 @@ import { AddShowDialog } from './add-show-dialog';
 import { useShows } from '@/hooks/use-shows';
 import { NextEpisodeCard } from './next-episode-card';
 import { ShowDetailsDialog } from './show-details-dialog';
+import { useDashboardSettings } from '@/hooks/use-dashboard-settings';
+import { AVAILABLE_CARDS } from '@/lib/dashboard-cards';
+import { CustomizeDashboardDialog } from './customize-dashboard-dialog';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 
 interface InfoCardProps {
@@ -69,12 +73,42 @@ const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading, change, 
     </Card>
 );
 
+const TimeCard = () => {
+    const { time, date } = useTime();
+    const { isLoaded } = useDashboardSettings();
+    const cardInfo = AVAILABLE_CARDS.find(c => c.id === 'time')!;
+    const Icon = cardInfo.icon;
+    
+    return (
+        <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-2 xl:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{cardInfo.title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                 {!isLoaded && <Skeleton className="h-8 w-full" />}
+                 {isLoaded && (
+                    <div className="flex items-baseline justify-between flex-wrap gap-2">
+                         <div className="text-2xl font-bold">{date}</div>
+                         <div className="text-2xl font-mono font-bold flex items-center gap-2">
+                            <Icon className="h-5 w-5 text-muted-foreground"/>
+                            {time}
+                         </div>
+                    </div>
+                 )}
+                <p className="text-xs text-muted-foreground">Fuso horário local</p>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function Dashboard() {
-  const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
+  const { links, isLoaded: areLinksLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
   const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
   const [addShowDialogOpen, setAddShowDialogOpen] = React.useState(false);
   const [showDetailsDialogOpen, setShowDetailsDialogOpen] = React.useState(false);
+  const [customizeDialogOpen, setCustomizeDialogOpen] = React.useState(false);
   const [selectedShowId, setSelectedShowId] = React.useState<number | null>(null);
 
   const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
@@ -85,8 +119,8 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
   const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
-  const { time, date } = useTime();
   const { shows } = useShows();
+  const { activeCardIds, isLoaded: areSettingsLoaded } = useDashboardSettings();
 
   const handleAddClick = () => {
     setLinkToEdit(null);
@@ -163,14 +197,60 @@ export default function Dashboard() {
     }, {} as Record<string, LinkItem[]>);
   }, [links]);
 
+  const isLoaded = areLinksLoaded && areSettingsLoaded;
+
+  const renderCard = (card: DashboardCardType) => {
+    switch (card.id) {
+        case 'weather':
+            return <InfoCard
+                key={card.id}
+                title={card.title}
+                value={weather ? `${weather.temp}°C` : null}
+                icon={card.icon}
+                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
+                error={weatherError}
+                isLoading={isWeatherLoading}
+            />
+        case 'time':
+            return <TimeCard key={card.id} />;
+        default: // Financial cards
+            const data = financialData[card.id];
+            const prefix = ['USD-BRL', 'EUR-BRL', 'BTC-BRL'].includes(card.id) ? 'R$ ' : '';
+            const footerMap: { [key: string]: string } = {
+                'USD-BRL': 'Comercial',
+                'EUR-BRL': 'Comercial',
+                'BTC-BRL': 'Cotação',
+                '^BVSP': 'Pontos',
+                'IXIC': 'Pontos',
+                'GSPC': 'Pontos'
+            };
+
+            return <InfoCard
+                key={card.id}
+                title={card.title}
+                prefix={prefix}
+                value={data?.value}
+                change={data?.change}
+                isPositive={data?.isPositive}
+                icon={card.icon}
+                footer={footerMap[card.id]}
+                error={financialError}
+                isLoading={isFinancialLoading}
+            />
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <header className="sticky top-0 z-30 flex h-[60px] items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-8">
         <h1 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
-          <TrendingUp className="h-6 w-6" />
           FluxDash
         </h1>
         <div className="ml-auto flex items-center gap-2">
+           <Button onClick={() => setCustomizeDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
+            <LayoutGrid className="mr-2 h-4 w-4" />
+            Customizar
+          </Button>
            <Button onClick={() => setAddShowDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
             <Tv className="mr-2 h-4 w-4" />
             Adicionar Série
@@ -188,96 +268,13 @@ export default function Dashboard() {
 
       <main className="flex-1 p-4 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-8">
-            <InfoCard 
-                title="Dólar"
-                prefix="R$ "
-                value={financialData['USD-BRL']?.value}
-                change={financialData['USD-BRL']?.change}
-                isPositive={financialData['USD-BRL']?.isPositive}
-                icon={DollarSign}
-                footer="Comercial"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-            <InfoCard 
-                title="Euro"
-                prefix="R$ "
-                value={financialData['EUR-BRL']?.value}
-                change={financialData['EUR-BRL']?.change}
-                isPositive={financialData['EUR-BRL']?.isPositive}
-                icon={Euro}
-                footer="Comercial"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-            <InfoCard 
-                title="Bitcoin"
-                prefix="R$ "
-                value={financialData['BTC-BRL']?.value}
-                change={financialData['BTC-BRL']?.change}
-                isPositive={financialData['BTC-BRL']?.isPositive}
-                icon={Bitcoin}
-                footer="Cotação"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-             <InfoCard
-                title="Ibovespa"
-                value={financialData['^BVSP']?.value}
-                change={financialData['^BVSP']?.change}
-                isPositive={financialData['^BVSP']?.isPositive}
-                icon={Landmark}
-                footer="Pontos"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-            <InfoCard
-                title="Clima"
-                value={weather ? `${weather.temp}°C` : null}
-                icon={Thermometer}
-                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
-                error={weatherError}
-                isLoading={isWeatherLoading}
-            />
-             <Card className="shadow-sm hover:shadow-md transition-shadow col-span-full md:col-span-2 lg:col-span-2 xl:col-span-2">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Data & Hora</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                     {isWeatherLoading && <Skeleton className="h-8 w-full" />}
-                     {!isWeatherLoading && (
-                        <div className="flex items-baseline justify-between flex-wrap gap-2">
-                             <div className="text-2xl font-bold">{date}</div>
-                             <div className="text-2xl font-mono font-bold flex items-center gap-2">
-                                <Clock className="h-5 w-5 text-muted-foreground"/>
-                                {time}
-                             </div>
-                        </div>
-                     )}
-                    <p className="text-xs text-muted-foreground">Fuso horário local</p>
-                </CardContent>
-            </Card>
-            <InfoCard
-                title="NASDAQ"
-                value={financialData['IXIC']?.value}
-                change={financialData['IXIC']?.change}
-                isPositive={financialData['IXIC']?.isPositive}
-                icon={Activity}
-                footer="Pontos"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
-            <InfoCard
-                title="S&P 500"
-                value={financialData['GSPC']?.value}
-                change={financialData['GSPC']?.change}
-                isPositive={financialData['GSPC']?.isPositive}
-                icon={Globe}
-                footer="Pontos"
-                error={financialError}
-                isLoading={isFinancialLoading}
-            />
+            {!isLoaded ? (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)
+            ) : (
+                AVAILABLE_CARDS
+                    .filter(card => activeCardIds.includes(card.id))
+                    .map(card => renderCard(card))
+            )}
         </div>
         
         {shows.length > 0 && (
@@ -290,7 +287,6 @@ export default function Dashboard() {
               </div>
           </div>
         )}
-
 
         {!isLoaded && (
             <div className="space-y-4">
@@ -376,6 +372,10 @@ export default function Dashboard() {
       <AddShowDialog
         open={addShowDialogOpen}
         onOpenChange={setAddShowDialogOpen}
+      />
+      <CustomizeDashboardDialog
+        open={customizeDialogOpen}
+        onOpenChange={setCustomizeDialogOpen}
       />
       {selectedShowId && (
         <ShowDetailsDialog

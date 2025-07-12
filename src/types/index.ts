@@ -80,3 +80,10 @@ export interface SeasonDetails {
     poster_path: string;
     season_number: number;
 }
+
+export type DashboardCard = {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  category: 'financial' | 'utility';
+};
