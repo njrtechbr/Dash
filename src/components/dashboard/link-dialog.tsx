@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './icon-picker';
 import type { LinkItem } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
