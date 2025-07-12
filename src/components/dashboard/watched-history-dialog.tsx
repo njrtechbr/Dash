@@ -42,8 +42,8 @@ export function WatchedHistoryDialog({ open, onOpenChange, history }: WatchedHis
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Episódio</TableHead>
-                        <TableHead className="text-right">Assistido em</TableHead>
+                        <TableHead className="font-bold">Episódio</TableHead>
+                        <TableHead className="text-right font-bold">Assistido em</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
