@@ -27,9 +27,10 @@ import { IconPicker } from './icon-picker';
 import type { LinkItem } from '@/types';
 
 const formSchema = z.object({
-  title: z.string().min(1, { message: 'Title is required.' }),
-  url: z.string().url({ message: 'Please enter a valid URL.' }),
-  icon: z.string().min(1, { message: 'Please select an icon.' }),
+  title: z.string().min(1, { message: 'Título é obrigatório.' }),
+  url: z.string().url({ message: 'Por favor, insira uma URL válida.' }),
+  icon: z.string().min(1, { message: 'Por favor, selecione um ícone.' }),
+  group: z.string().min(1, { message: 'Grupo é obrigatório.' }).default('Geral'),
 });
 
 type LinkFormData = z.infer<typeof formSchema>;
@@ -53,22 +54,27 @@ export function LinkDialog({
       title: '',
       url: '',
       icon: 'Link',
+      group: 'Geral',
     },
   });
 
   React.useEffect(() => {
-    if (linkToEdit) {
-      form.reset({
-        title: linkToEdit.title,
-        url: linkToEdit.url,
-        icon: linkToEdit.icon,
-      });
-    } else {
-      form.reset({
-        title: '',
-        url: '',
-        icon: 'Link',
-      });
+    if (open) {
+      if (linkToEdit) {
+        form.reset({
+          title: linkToEdit.title,
+          url: linkToEdit.url,
+          icon: linkToEdit.icon,
+          group: linkToEdit.group || 'Geral',
+        });
+      } else {
+        form.reset({
+          title: '',
+          url: '',
+          icon: 'Link',
+          group: 'Geral',
+        });
+      }
     }
   }, [linkToEdit, form, open]);
 
@@ -81,23 +87,23 @@ export function LinkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{linkToEdit ? 'Edit Link' : 'Add New Link'}</DialogTitle>
+          <DialogTitle>{linkToEdit ? 'Editar Link' : 'Adicionar Novo Link'}</DialogTitle>
           <DialogDescription>
             {linkToEdit
-              ? "Update the details of your link."
-              : "Enter the details for your new link to add it to the dashboard."}
+              ? "Atualize os detalhes do seu link."
+              : "Insira os detalhes do seu novo link para adicioná-lo ao painel."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-4">
             <FormField
               control={form.control}
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Título</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Google Drive" {...field} />
+                    <Input placeholder="Ex: Google Drive" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -116,12 +122,25 @@ export function LinkDialog({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="group"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Grupo</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Trabalho" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
              <FormField
               control={form.control}
               name="icon"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Icon</FormLabel>
+                  <FormLabel>Ícone</FormLabel>
                   <FormControl>
                     <IconPicker value={field.value} onChange={field.onChange} />
                   </FormControl>
@@ -129,8 +148,9 @@ export function LinkDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="submit">Save changes</Button>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button type="submit">Salvar alterações</Button>
             </DialogFooter>
           </form>
         </Form>

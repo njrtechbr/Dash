@@ -34,7 +34,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
           className="w-full justify-start"
         >
           <SelectedIcon className="mr-2 h-4 w-4 shrink-0" />
-          {value || 'Select icon...'}
+          {value || 'Selecionar ícone...'}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
@@ -42,7 +42,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
             <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search icons..."
+                    placeholder="Buscar ícones..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-8"

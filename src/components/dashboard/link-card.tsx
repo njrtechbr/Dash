@@ -36,19 +36,24 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'group relative block transition-opacity duration-300',
-        isDragging && 'opacity-50'
+        'group relative block transition-all duration-300',
+        isDragging && 'opacity-30 scale-95',
+        'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-lg'
       )}
       draggable="false"
+      onDragStart={(e) => e.preventDefault()}
     >
       <Card
         className={cn(
-            'h-32 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-primary',
-            isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+            'h-32 w-full overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1.5 hover:border-primary/50',
+            isDragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
+            'bg-card shadow-md hover:shadow-primary/20'
         )}
       >
         <CardContent className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
-          <Icon className="h-8 w-8 text-primary" />
+          <div className="p-3 bg-primary/10 rounded-full transition-colors duration-300 group-hover:bg-primary/20">
+            <Icon className="h-8 w-8 text-primary transition-transform duration-300 group-hover:scale-110" />
+          </div>
           <p className="font-semibold text-foreground truncate w-full px-2">{link.title}</p>
         </CardContent>
       </Card>
@@ -66,11 +71,11 @@ export function LinkCard({ link, onEdit, onDelete, isDragging, isDragOver }: Lin
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>
               <Edit className="mr-2 h-4 w-4" />
-              <span>Edit</span>
+              <span>Editar</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
-              <span>Delete</span>
+              <span>Deletar</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

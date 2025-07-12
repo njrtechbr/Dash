@@ -56,9 +56,32 @@ export const useLinks = () => {
     });
   }, []);
   
-  const reorderLinks = useCallback((reorderedLinks: LinkItem[]) => {
-      setLinks(reorderedLinks);
-      updateLocalStorage(reorderedLinks);
+  const reorderLinks = useCallback((draggedId: string, targetId: string, targetGroup: string) => {
+    setLinks(prevLinks => {
+        const currentLinks = [...prevLinks];
+        const draggedItem = currentLinks.find(l => l.id === draggedId);
+        if (!draggedItem) return prevLinks;
+
+        const updatedDraggedItem = { ...draggedItem, group: targetGroup };
+        
+        let remainingLinks = currentLinks.filter(l => l.id !== draggedId);
+        const targetIndex = remainingLinks.findIndex(l => l.id === targetId);
+
+        if (targetIndex !== -1) {
+            remainingLinks.splice(targetIndex, 0, updatedDraggedItem);
+        } else {
+            // If dropping on a group header, find first item of that group
+            const firstItemOfGroupIndex = remainingLinks.findIndex(l => l.group === targetGroup);
+            if(firstItemOfGroupIndex !== -1) {
+                remainingLinks.splice(firstItemOfGroupIndex, 0, updatedDraggedItem);
+            } else {
+                 remainingLinks.push(updatedDraggedItem);
+            }
+        }
+        
+        updateLocalStorage(remainingLinks);
+        return remainingLinks;
+    });
   }, []);
 
   return { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks };
