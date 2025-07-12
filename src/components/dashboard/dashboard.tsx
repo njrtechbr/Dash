@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro, TrendingUp, ArrowUp, ArrowDown, Activity, Landmark, Globe } from 'lucide-react';
+import { Plus, GripVertical, Layers, DollarSign, Thermometer, Calendar, Clock, Bitcoin, Euro, TrendingUp, ArrowUp, ArrowDown, Activity, Landmark, Globe, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
@@ -9,13 +9,16 @@ import { LinkCard } from './link-card';
 import { LinkDialog } from './link-dialog';
 import { BatchLinkDialog } from './batch-link-dialog';
 import type { LinkItem } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWeather } from '@/hooks/use-weather';
 import { useFinancialData } from '@/hooks/use-financial-data';
 import { useTime } from '@/hooks/use-time';
 import { cn } from '@/lib/utils';
+import { AddShowDialog } from './add-show-dialog';
+import { useShows } from '@/hooks/use-shows';
+import { NextEpisodeCard } from './next-episode-card';
 
 
 interface InfoCardProps {
@@ -69,6 +72,7 @@ export default function Dashboard() {
   const { links, isLoaded, addLink, updateLink, deleteLink, reorderLinks, addMultipleLinks } = useLinks();
   const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
+  const [showDialogOpen, setShowDialogOpen] = React.useState(false);
   const [linkToEdit, setLinkToEdit] = React.useState<LinkItem | null>(null);
 
   const [draggedItem, setDraggedItem] = React.useState<LinkItem | null>(null);
@@ -78,6 +82,7 @@ export default function Dashboard() {
   const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
   const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
   const { time, date } = useTime();
+  const { shows } = useShows();
 
   const handleAddClick = () => {
     setLinkToEdit(null);
@@ -157,6 +162,10 @@ export default function Dashboard() {
           FluxDash
         </h1>
         <div className="ml-auto flex items-center gap-2">
+           <Button onClick={() => setShowDialogOpen(true)} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
+            <Tv className="mr-2 h-4 w-4" />
+            Adicionar Série
+          </Button>
            <Button onClick={handleBatchAddClick} variant="outline" className="shadow-sm hover:shadow-md transition-shadow">
             <Layers className="mr-2 h-4 w-4" />
             Adicionar em Lote
@@ -261,6 +270,17 @@ export default function Dashboard() {
                 isLoading={isFinancialLoading}
             />
         </div>
+        
+        {shows.length > 0 && (
+          <div className="mb-8">
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Próximos Episódios</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {shows.map(show => (
+                      <NextEpisodeCard key={show.id} showId={show.id} />
+                  ))}
+              </div>
+          </div>
+        )}
 
 
         {!isLoaded && (
@@ -312,7 +332,7 @@ export default function Dashboard() {
             ))}
           </Accordion>
         )}
-        {isLoaded && links.length === 0 && (
+        {isLoaded && links.length === 0 && shows.length === 0 && (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed shadow-sm mt-16 bg-card/50">
             <div className="flex flex-col items-center gap-4 text-center p-8">
               <div className='p-4 bg-primary/10 rounded-full'>
@@ -322,7 +342,7 @@ export default function Dashboard() {
                 Seu painel está vazio
               </h3>
               <p className="text-sm text-muted-foreground">
-                Adicione seus sistemas web favoritos para começar.
+                Adicione seus sistemas web favoritos ou séries para começar.
               </p>
               <Button className="mt-4" onClick={handleAddClick}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -343,6 +363,10 @@ export default function Dashboard() {
         open={batchDialogOpen}
         onOpenChange={setBatchDialogOpen}
         onSave={handleSaveBatchLinks}
+      />
+      <AddShowDialog
+        open={showDialogOpen}
+        onOpenChange={setShowDialogOpen}
       />
     </div>
   );
