@@ -79,26 +79,21 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const toggleWatchedEpisode = useCallback((showId: number, episodeId: string, episodeName: string) => {
+    let isWatched: boolean | undefined;
+    
     setShows(prevShows => {
       const updatedShows = prevShows.map(show => {
         if (show.id === showId) {
           const watchedEpisodes = show.watched_episodes || [];
-          const isWatched = watchedEpisodes.some(e => e.episodeId === episodeId);
+          const wasWatched = watchedEpisodes.some(e => e.episodeId === episodeId);
+          isWatched = !wasWatched;
           
           let newWatchedEpisodes: WatchedEpisode[];
 
-          if (isWatched) {
+          if (wasWatched) {
             newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
-            toast({
-                title: 'Episódio Desmarcado',
-                description: `O episódio "${episodeName}" foi removido do seu histórico.`
-            });
           } else {
             newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName, watchedAt: new Date().toISOString() }];
-             toast({
-                title: 'Episódio Assistido!',
-                description: `Você marcou "${episodeName}" como assistido.`
-            });
           }
           
           return { ...show, watched_episodes: newWatchedEpisodes };
@@ -108,6 +103,18 @@ export function ShowsProvider({ children }: { children: ReactNode }) {
       updateLocalStorage(updatedShows);
       return updatedShows;
     });
+
+    if (isWatched === true) {
+        toast({
+            title: 'Episódio Assistido!',
+            description: `Você marcou "${episodeName}" como assistido.`
+        });
+    } else if (isWatched === false) {
+        toast({
+            title: 'Episódio Desmarcado',
+            description: `O episódio "${episodeName}" foi removido do seu histórico.`
+        });
+    }
   }, [toast]);
 
   return (
