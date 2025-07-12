@@ -51,6 +51,19 @@ export type WatchProvider = {
     tmdbId?: number; // Optional, can be added for deep linking
 }
 
+export type VideoResult = {
+  iso_639_1: string;
+  iso_3166_1: string;
+  name: string;
+  key: string;
+  site: string;
+  size: number;
+  type: string;
+  official: boolean;
+  published_at: string;
+  id: string;
+};
+
 export interface TMDbShowDetails {
   id: number;
   name: string;
@@ -67,6 +80,9 @@ export interface TMDbShowDetails {
   seasons: { season_number: number, episode_count: number }[];
   number_of_episodes: number;
   number_of_seasons: number;
+  videos?: {
+    results: VideoResult[];
+  };
   'watch/providers'?: {
     results: {
         BR?: {
@@ -119,6 +135,9 @@ export interface TMDbMovieDetails {
   release_date: string;
   genres: { id: number; name: string }[];
   runtime: number | null;
+  videos?: {
+    results: VideoResult[];
+  };
   'watch/providers'?: {
     results: {
         BR?: {

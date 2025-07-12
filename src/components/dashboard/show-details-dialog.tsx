@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Check, Trash2, Tv, Film, Calendar, Star } from 'lucide-react';
+import { Check, Trash2, Tv, Film, Calendar, Star, Youtube } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Separator } from '../ui/separator';
 
@@ -92,6 +92,13 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
         onOpenChange(false);
     }
 
+    const trailer = React.useMemo(() => {
+        if (!details?.videos?.results) return null;
+        const officialTrailer = details.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube' && v.official);
+        return officialTrailer || details.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') || null;
+    }, [details]);
+
+
     const show = shows.find(s => s.id === showId);
     const watchedEpisodeIds = new Set(show?.watched_episodes?.map(e => e.episodeId) ?? []);
     
@@ -135,7 +142,7 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
 
                     <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
                         <div className="md:col-span-1 p-6 pt-0 pr-0 overflow-y-auto">
-                            <h3 className="font-bold text-lg mb-2">Sobre a Série</h3>
+                            <h3 className="font-bold text-lg mb-2 mt-4">Sobre a Série</h3>
                             <div className="flex flex-wrap gap-2 mb-4">
                                 {details.genres.map(genre => (
                                     <Badge key={genre.id} variant="outline">{genre.name}</Badge>
@@ -143,14 +150,30 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
                             </div>
                             <p className="text-sm text-muted-foreground mb-4 pr-6">{details.overview}</p>
                             
-                             <div className="flex items-center gap-2 text-sm">
+                             <div className="flex items-center gap-2 text-sm mb-6">
                                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
                                 <span className="font-bold text-lg">{details.vote_average.toFixed(1)}</span>
                                 <span className="text-muted-foreground">({details.vote_count} votos)</span>
                             </div>
+                             {trailer && (
+                                <div className="pr-6">
+                                    <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Youtube className="h-5 w-5 text-red-600"/> Trailer</h3>
+                                    <div className='aspect-video w-full'>
+                                        <iframe
+                                            width="100%"
+                                            height="100%"
+                                            src={`https://www.youtube.com/embed/${trailer.key}`}
+                                            title={trailer.name}
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                            className='rounded-lg'
+                                        ></iframe>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="md:col-span-2 p-6 pt-0 overflow-y-auto border-l">
-                             <h3 className="font-bold text-lg mb-2">Episódios</h3>
+                             <h3 className="font-bold text-lg mb-2 mt-4">Episódios</h3>
                            <Accordion type="multiple" className="w-full">
                                 {seasons.map(season => {
                                     if (season.episodes.length === 0) return null;

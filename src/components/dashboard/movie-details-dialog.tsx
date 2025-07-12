@@ -15,7 +15,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Film, ExternalLink, Tag } from 'lucide-react';
+import { Calendar, Clock, Film, ExternalLink, Tag, Youtube } from 'lucide-react';
 import { Separator } from '../ui/separator';
 
 interface MovieDetailsDialogProps {
@@ -71,9 +71,15 @@ export function MovieDetailsDialog({ open, onOpenChange, movieId }: MovieDetails
     const releaseYear = details?.release_date ? new Date(details.release_date).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
     const watchInfo = details?.['watch/providers']?.results.BR;
 
+    const trailer = React.useMemo(() => {
+        if (!details?.videos?.results) return null;
+        const officialTrailer = details.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube' && v.official);
+        return officialTrailer || details.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') || null;
+    }, [details]);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col p-0">
+            <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0">
                 {isLoading || !details ? (
                      <div className="p-6 space-y-4">
                         <Skeleton className="h-8 w-3/4" />
@@ -126,6 +132,23 @@ export function MovieDetailsDialog({ open, onOpenChange, movieId }: MovieDetails
                         </div>
 
                         <p className="text-foreground/90 leading-relaxed mb-6">{details.overview}</p>
+                        
+                        {trailer && (
+                             <div className="mb-6">
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Youtube className="h-5 w-5 text-red-600"/> Trailer Oficial</h3>
+                                <div className='aspect-video w-full'>
+                                    <iframe
+                                        width="100%"
+                                        height="100%"
+                                        src={`https://www.youtube.com/embed/${trailer.key}`}
+                                        title={trailer.name}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                        className='rounded-lg'
+                                    ></iframe>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             {watchInfo?.flatrate && <WatchProviderSection title="Streaming" providers={watchInfo.flatrate.map(p => ({...p, tmdbId: details.id}))} />}

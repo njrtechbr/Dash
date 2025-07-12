@@ -34,7 +34,7 @@ export async function getShowDetails(showId: number): Promise<TMDbShowDetails | 
         throw new Error('A chave da API do TMDb não está configurada.');
     }
 
-    const url = `${API_BASE_URL}/tv/${showId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers`;
+    const url = `${API_BASE_URL}/tv/${showId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers,videos`;
     
     try {
         const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalida a cada hora
@@ -111,7 +111,7 @@ export async function getMovieDetails(movieId: number): Promise<TMDbMovieDetails
         throw new Error('A chave da API do TMDb não está configurada.');
     }
 
-    const url = `${API_BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers`;
+    const url = `${API_BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=pt-BR&append_to_response=watch/providers,videos`;
     
     try {
         const response = await fetch(url, { next: { revalidate: 86400 } }); // Revalida a cada dia
