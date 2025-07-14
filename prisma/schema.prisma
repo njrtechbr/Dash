@@ -11,39 +11,39 @@ datasource db {
 }
 
 model Link {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   url         String
   icon        String
   group       String
   description String?
-  isFavorite  Boolean?  @default(false)
-  createdAt   DateTime  @default(now())
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 model Movie {
-  id          Int     @id
-  docId       String? @unique
+  id          Int      @id @default(autoincrement())
+  tmdbId      Int      @unique
+  docId       String?  @unique
   title       String
   poster_path String?
-  watched     Boolean
+  watched     Boolean  @default(false)
 }
 
 model Show {
-  id               Int      @id
-  docId            String?  @unique
-  name             String
-  poster_path      String?
+  id              Int      @id @default(autoincrement())
+  tmdbId          Int      @unique
+  docId           String?  @unique
+  name            String
+  poster_path     String?
   watched_episodes WatchedEpisode[]
 }
 
 model WatchedEpisode {
-  id          String   @id @default(cuid())
-  episodeId   String
-  episodeName String
-  watchedAt   DateTime
-  showId      Int
-  show        Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
-
-  @@unique([showId, episodeId])
+  id           String   @id @default(cuid())
+  episodeId    String   // Formato S<season>E<episode>
+  episodeName  String
+  watchedAt    DateTime
+  show         Show     @relation(fields: [showId], references: [id])
+  showId       Int
 }
