@@ -1,43 +1,23 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import type { FinancialInfo, HistoryData } from '@/types';
 
-// API Pública: https://docs.awesomeapi.com.br/api-de-moedas e https://brapi.dev/docs
-const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/json/last/';
-const BRAPI_API_URL = 'https://brapi.dev/api/quote/';
+// API Pública: https://docs.awesomeapi.com.br/api-de-moedas
+const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/json';
 
-const CODES = ['USD-BRL', 'EUR-BRL', 'BTC-BRL'];
-const STOCKS = ['^BVSP', 'IXIC', 'GSPC']; // IBOVESPA, NASDAQ, S&P 500
-
-interface FinancialInfo {
-    value: string;
-    name: string;
-    change: string;
-    isPositive: boolean;
-}
+const CODES = ['USD-BRL', 'EUR-BRL'];
+const HISTORY_DAYS = 7;
 
 const CACHE_DURATION = 300000; // 5 minutos
 
-const formatCurrencyValue = (code: string, data: any): string => {
-    const value = parseFloat(data.bid);
+const formatCurrencyValue = (valueStr: string | number): string => {
+    const value = parseFloat(String(valueStr));
     if (isNaN(value)) {
         return 'N/A';
     }
-
-    switch (code) {
-        case 'USD-BRL':
-        case 'EUR-BRL':
-            return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        case 'BTC-BRL':
-             return (value * 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        default:
-            return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-}
-
-const formatStockValue = (data: any): string => {
-    return data.regularMarketPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export const useFinancialData = () => {
     const [financialData, setFinancialData] = useState<Record<string, FinancialInfo>>({});
@@ -47,14 +27,14 @@ export const useFinancialData = () => {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         let currentError: string | null = null;
-        let finalData: Record<string, FinancialInfo> = {};
+        const finalData: Record<string, FinancialInfo> = {};
 
         const lastFetch = localStorage.getItem('financialLastFetch');
         const cachedData = localStorage.getItem('financialData');
         
         if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
             const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
-             if (CODES.every(code => parsedCache[code]) && STOCKS.every(stock => parsedCache[stock])) {
+             if (CODES.every(code => parsedCache[code])) {
                 setFinancialData(parsedCache);
                 setFinancialError(null);
                 setIsLoading(false);
@@ -62,74 +42,55 @@ export const useFinancialData = () => {
             }
         }
         
-        // Fetch Currencies
         try {
-            const currencyResponse = await fetch(`${AWESOME_API_URL}${CODES.join(',')}`);
-            if (!currencyResponse.ok) throw new Error('Falha ao buscar cotações de moedas.');
-            const currencyData = await currencyResponse.json();
-            Object.keys(currencyData).forEach(key => {
-                const itemData = currencyData[key];
+            const [currentDataResponse, ...historyResponses] = await Promise.all([
+                fetch(`${AWESOME_API_URL}/last/${CODES.join(',')}`),
+                ...CODES.map(code => fetch(`${AWESOME_API_URL}/daily/${code}/${HISTORY_DAYS}`))
+            ]);
+
+            if (!currentDataResponse.ok) throw new Error('Falha ao buscar cotações atuais.');
+            const currentData = await currentDataResponse.json();
+
+            const historyData: Record<string, any[]> = {};
+            await Promise.all(historyResponses.map(async (res, index) => {
+                if (res.ok) {
+                    historyData[CODES[index]] = await res.json();
+                }
+            }));
+            
+            Object.keys(currentData).forEach(key => {
+                const itemData = currentData[key];
                 const code = itemData.code + '-' + itemData.codein;
                 const change = parseFloat(itemData.pctChange);
+
+                const history: HistoryData[] = (historyData[code] || []).map(h => ({
+                    date: new Date(Number(h.timestamp) * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit'}),
+                    value: parseFloat(h.bid)
+                })).reverse();
+
                 finalData[code] = {
-                    value: formatCurrencyValue(code, itemData),
+                    value: formatCurrencyValue(itemData.bid),
                     name: itemData.name.split('/')[0],
                     change: `${change.toFixed(2)}%`,
                     isPositive: change >= 0,
+                    footer: 'Comercial',
+                    history: history,
                 };
             });
+
+             if (Object.keys(finalData).length > 0) {
+                 setFinancialData(finalData);
+                 localStorage.setItem('financialData', JSON.stringify(finalData));
+                 localStorage.setItem('financialLastFetch', new Date().getTime().toString());
+            }
+
         } catch (error) {
             console.error("Currency fetch error:", error);
             if (error instanceof Error) currentError = error.message;
-             if(cachedData) {
-                const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
-                CODES.forEach(code => {
-                    if(parsedCache[code]) finalData[code] = parsedCache[code];
-                })
-             }
-        }
-
-        // Fetch Stocks
-        try {
-            const stockResponse = await fetch(`${BRAPI_API_URL}${STOCKS.join(',')}`);
-            if (stockResponse.ok) {
-                const stockData = await stockResponse.json();
-                 if (stockData.results) {
-                    stockData.results.forEach((item: any) => {
-                        const change = item.regularMarketChangePercent;
-                        finalData[item.symbol] = {
-                            value: formatStockValue(item),
-                            name: item.longName || item.symbol,
-                            change: `${change.toFixed(2)}%`,
-                            isPositive: change >= 0,
-                        };
-                    });
-                }
-            } else if (stockResponse.status === 401) {
-                console.warn("Stock fetch error: 401 Unauthorized. API may require a token.");
-                if (!currentError) currentError = "Não foi possível carregar dados de ações (não autorizado)."
+            // Fallback to cache if API fails
+            if(cachedData) {
+                setFinancialData(JSON.parse(cachedData));
             }
-        } catch(error) {
-             console.error("Stock fetch error:", error);
-             // Silently fail and rely on cache
-        } finally {
-             // Use cache for stocks if fetch failed but cache exists
-             if(cachedData) {
-                const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
-                STOCKS.forEach(stock => {
-                    // Only use cache if data wasn't successfully fetched in this run
-                    if(parsedCache[stock] && !finalData[stock]) {
-                        finalData[stock] = parsedCache[stock];
-                    }
-                })
-             }
-        }
-
-
-        if (Object.keys(finalData).length > 0) {
-             setFinancialData(finalData);
-             localStorage.setItem('financialData', JSON.stringify(finalData));
-             localStorage.setItem('financialLastFetch', new Date().getTime().toString());
         }
 
         setFinancialError(currentError);

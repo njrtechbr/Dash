@@ -5,7 +5,7 @@ import { GripVertical, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
-import type { LinkItem, DashboardCard as DashboardCardType } from '@/types';
+import type { LinkItem, DashboardCard as DashboardCardType, FinancialInfo } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWeather } from '@/hooks/use-weather';
@@ -20,54 +20,81 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { MovieCard } from './movie-card';
 import { useMovies } from '@/hooks/use-movies';
 import { SidebarInset } from '../ui/sidebar';
+import { FinancialChartDialog } from './financial-chart-dialog';
 
 
 interface InfoCardProps {
+  data: FinancialInfo;
   title: string;
-  value?: string | null;
   icon: React.ElementType;
-  footer?: string | null;
   error?: string | null;
   isLoading: boolean;
-  change?: string | null;
-  isPositive?: boolean | null;
   prefix?: string;
+  onCardClick?: () => void;
 }
 
-const InfoCard = ({ title, value, icon: Icon, footer, error, isLoading, change, isPositive, prefix }: InfoCardProps) => (
-    <Card className="shadow-sm hover:shadow-md transition-shadow duration-300 transform hover:-translate-y-1 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            <Icon className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-3/4 bg-muted/50" />
-            ) : error && !value ? (
-              <p className="text-sm text-destructive">{error}</p>
-            ) : value ? (
-              <div className="text-2xl font-bold">{prefix}{value}</div>
-            ) : null}
+const InfoCard = ({ data, title, icon: Icon, error, isLoading, prefix, onCardClick }: InfoCardProps) => {
+    const { value, change, isPositive, footer } = data || {};
+    return (
+        <Card 
+            className={cn(
+                "shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-card/80 backdrop-blur-sm",
+                onCardClick && "cursor-pointer"
+            )}
+            onClick={onCardClick}
+        >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                <Skeleton className="h-8 w-3/4 bg-muted/50" />
+                ) : error && !value ? (
+                <p className="text-sm text-destructive">{error}</p>
+                ) : value ? (
+                <div className="text-2xl font-bold">{prefix}{value}</div>
+                ) : null}
 
-            {isLoading ? (
-                <Skeleton className="h-4 w-1/2 mt-1 bg-muted/50" />
-            ) : change !== null && change !== undefined ? (
-                 <div className="flex items-center text-xs text-muted-foreground">
-                    <span className={cn(
-                        "flex items-center gap-1 font-semibold",
-                        isPositive ? "text-green-600" : "text-red-600"
-                    )}>
-                        {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                        {change}
-                    </span>
-                    <span className="ml-2 hidden sm:inline-block">{footer}</span>
-                </div>
-            ) : footer ? (
-                <p className="text-xs text-muted-foreground">{footer}</p>
-            ) : null }
-        </CardContent>
-    </Card>
-);
+                {isLoading ? (
+                    <Skeleton className="h-4 w-1/2 mt-1 bg-muted/50" />
+                ) : change !== null && change !== undefined ? (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                        <span className={cn(
+                            "flex items-center gap-1 font-semibold text-sm",
+                            isPositive ? "text-green-500" : "text-red-500"
+                        )}>
+                            {isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" /> }
+                            {change}
+                        </span>
+                        <span className="ml-2 hidden sm:inline-block">{footer}</span>
+                    </div>
+                ) : footer ? (
+                    <p className="text-xs text-muted-foreground">{footer}</p>
+                ) : null }
+            </CardContent>
+        </Card>
+    )
+};
+
+const WeatherCard = () => {
+    const { weather, weatherError, isLoading } = useWeather();
+    const cardInfo = AVAILABLE_CARDS.find(c => c.id === 'weather')!;
+    
+    return <InfoCard
+        key={cardInfo.id}
+        title={cardInfo.title}
+        data={{
+            value: weather ? `${weather.temp}°C` : null,
+            footer: weather ? `Em ${weather.city}` : 'Buscando...',
+            change: null,
+            isPositive: null
+        }}
+        icon={cardInfo.icon}
+        error={weatherError}
+        isLoading={isLoading}
+    />
+};
 
 const TimeCard = () => {
     const { time, date } = useTime();
@@ -103,8 +130,10 @@ export default function Dashboard() {
 
   const [draggedItem, setDraggedItem] = React.useState<LinkItem | null>(null);
   const [dragOverItem, setDragOverItem] = React.useState<LinkItem | null>(null);
+  
+  const [isChartOpen, setIsChartOpen] = React.useState(false);
+  const [selectedFinancialCard, setSelectedFinancialCard] = React.useState<FinancialInfo | null>(null);
 
-  const { weather, weatherError, isLoading: isWeatherLoading } = useWeather();
   const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
   const { shows, isLoaded: areShowsLoaded } = useShows();
   const { movies, isLoaded: areMoviesLoaded } = useMovies();
@@ -134,6 +163,13 @@ export default function Dashboard() {
     setDraggedItem(null);
     setDragOverItem(null);
   };
+  
+  const handleFinancialCardClick = (data: FinancialInfo) => {
+    if (data.history) {
+        setSelectedFinancialCard(data);
+        setIsChartOpen(true);
+    }
+  };
 
   const { groupedLinks, favoriteLinks } = React.useMemo(() => {
     const favorites: LinkItem[] = [];
@@ -159,40 +195,22 @@ export default function Dashboard() {
   const renderCard = (card: DashboardCardType) => {
     switch (card.id) {
         case 'weather':
-            return <InfoCard
-                key={card.id}
-                title={card.title}
-                value={weather ? `${weather.temp}°C` : null}
-                icon={card.icon}
-                footer={weather ? `Em ${weather.city}` : 'Buscando...'}
-                error={weatherError}
-                isLoading={isWeatherLoading}
-            />
+            return <WeatherCard key={card.id}/>
         case 'time':
             return <TimeCard key={card.id} />;
         default: // Financial cards
             const data = financialData[card.id];
-            const prefix = ['USD-BRL', 'EUR-BRL', 'BTC-BRL'].includes(card.id) ? 'R$ ' : '';
-            const footerMap: { [key: string]: string } = {
-                'USD-BRL': 'Comercial',
-                'EUR-BRL': 'Comercial',
-                'BTC-BRL': 'Cotação',
-                '^BVSP': 'Pontos',
-                'IXIC': 'Pontos',
-                'GSPC': 'Pontos'
-            };
-
+            const prefix = ['USD-BRL', 'EUR-BRL'].includes(card.id) ? 'R$ ' : '';
+            
             return <InfoCard
                 key={card.id}
                 title={card.title}
                 prefix={prefix}
-                value={data?.value}
-                change={data?.change}
-                isPositive={data?.isPositive}
+                data={data}
                 icon={card.icon}
-                footer={footerMap[card.id]}
                 error={financialError}
                 isLoading={isFinancialLoading}
+                onCardClick={() => handleFinancialCardClick(data)}
             />
     }
   };
@@ -332,6 +350,13 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      {selectedFinancialCard && (
+        <FinancialChartDialog 
+            open={isChartOpen}
+            onOpenChange={setIsChartOpen}
+            data={selectedFinancialCard}
+        />
+      )}
     </SidebarInset>
   );
 }

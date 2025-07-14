@@ -158,3 +158,18 @@ export interface TMDbMovieDetails {
     }
   }
 }
+
+// Financial Types
+export interface HistoryData {
+  date: string;
+  value: number;
+}
+
+export interface FinancialInfo {
+    value: string | null;
+    name: string;
+    change: string | null;
+    isPositive: boolean | null;
+    footer?: string | null;
+    history?: HistoryData[];
+}
