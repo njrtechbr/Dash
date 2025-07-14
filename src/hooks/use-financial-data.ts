@@ -9,8 +9,7 @@ const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/json';
 const CODES = ['USD-BRL', 'EUR-BRL'];
 const HISTORY_DAYS = 7;
 
-const CACHE_DURATION = 300000; // 5 minutos
-const STALE_DURATION = 60000; // 1 minuto para dados "stale"
+const REFRESH_INTERVAL = 300000; // 5 minutos
 
 const formatCurrencyValue = (valueStr: string | number): string => {
     const value = parseFloat(String(valueStr));
@@ -24,6 +23,7 @@ export const useFinancialData = () => {
     const [financialData, setFinancialData] = useState<Record<string, FinancialInfo>>({});
     const [financialError, setFinancialError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -32,8 +32,8 @@ export const useFinancialData = () => {
         
         try {
             const [currentDataResponse, ...historyResponses] = await Promise.all([
-                fetch(`${AWESOME_API_URL}/last/${CODES.join(',')}`),
-                ...CODES.map(code => fetch(`${AWESOME_API_URL}/daily/${code}/${HISTORY_DAYS}`))
+                fetch(`${AWESOME_API_URL}/last/${CODES.join(',')}?timestamp=${Date.now()}`),
+                ...CODES.map(code => fetch(`${AWESOME_API_URL}/daily/${code}/${HISTORY_DAYS}?timestamp=${Date.now()}`))
             ]);
 
             if (!currentDataResponse.ok) throw new Error('Falha ao buscar cotações atuais.');
@@ -68,6 +68,7 @@ export const useFinancialData = () => {
 
              if (Object.keys(finalData).length > 0) {
                  setFinancialData(finalData);
+                 setLastUpdated(new Date());
             }
 
         } catch (error) {
@@ -81,14 +82,18 @@ export const useFinancialData = () => {
     }, []);
     
     useEffect(() => {
-        // Busca inicial
         fetchData();
-
-        // Busca em intervalos regulares
-        const intervalId = setInterval(fetchData, CACHE_DURATION);
-
+        const intervalId = setInterval(fetchData, REFRESH_INTERVAL);
         return () => clearInterval(intervalId);
     }, [fetchData]);
 
-    return { financialData, financialError, isLoading };
+    return { 
+        financialData, 
+        financialError, 
+        isLoading, 
+        lastUpdated,
+        refreshFinancialData: fetchData 
+    };
 };
+
+    

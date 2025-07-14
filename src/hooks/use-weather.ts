@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-// Usando API gratuita Open-Meteo para previsão e Geocoding
 const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast?current_weather=true';
 
 interface WeatherData {
     temp: string;
-    city: string;
     description: string;
 }
 
@@ -33,63 +31,71 @@ const WEATHER_CODES: { [key: number]: string } = {
     95: 'Trovoada',
 };
 
-
 export const useWeather = () => {
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [weatherError, setWeatherError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    const fetchWeatherForCoords = useCallback(async (lat: number, lon: number) => {
+        setIsLoading(true);
+        setWeatherError(null);
+        try {
+            const response = await fetch(`${WEATHER_API_URL}&latitude=${lat}&longitude=${lon}&timestamp=${Date.now()}`);
+            if (!response.ok) throw new Error('Falha na resposta da API de clima');
+            
+            const data = await response.json();
+            if (data && data.current_weather) {
+                const { temperature, weathercode } = data.current_weather;
+                setWeather({
+                    temp: Math.round(temperature).toString(),
+                    description: WEATHER_CODES[weathercode] || 'Condição desconhecida'
+                });
+                setLastUpdated(new Date());
+            } else {
+                throw new Error('Dados de clima não encontrados na resposta.');
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar clima.';
+            setWeatherError(errorMessage);
+            console.error("Weather fetch error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+    
+    const getLocationAndFetchWeather = useCallback(() => {
+        setIsLoading(true);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    fetchWeatherForCoords(latitude, longitude);
+                },
+                (error) => {
+                    setWeatherError('Não foi possível obter a localização.');
+                    console.error("Geolocation error:", error);
+                    setIsLoading(false);
+                },
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+            );
+        } else {
+            setWeatherError('Geolocalização não é suportada.');
+            setIsLoading(false);
+        }
+    }, [fetchWeatherForCoords]);
 
     useEffect(() => {
-        const fetchWeather = (lat: number, lon: number) => {
-             fetch(`${WEATHER_API_URL}&latitude=${lat}&longitude=${lon}`)
-                .then(res => {
-                    if (!res.ok) throw new Error('Falha na resposta da API de clima');
-                    return res.json();
-                })
-                .then(data => {
-                    if (data && data.current_weather) {
-                        const { temperature, weathercode } = data.current_weather;
-                        setWeather({
-                            temp: Math.round(temperature).toString(),
-                            city: 'Em sua localização',
-                            description: WEATHER_CODES[weathercode] || 'Condição desconhecida'
-                        });
-                        setWeatherError(null);
-                    } else {
-                        throw new Error('Dados de clima não encontrados na resposta.');
-                    }
-                })
-                .catch(error => {
-                    const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar clima.';
-                    setWeatherError(errorMessage);
-                    console.error("Weather fetch error:", error);
-                })
-                .finally(() => setIsLoading(false));
-        }
+        getLocationAndFetchWeather();
+    }, [getLocationAndFetchWeather]);
 
-        const getLocation = () => {
-            setIsLoading(true);
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        fetchWeather(latitude, longitude);
-                    },
-                    (error) => {
-                        setWeatherError('Não foi possível obter a localização.');
-                        console.error("Geolocation error:", error);
-                        setIsLoading(false);
-                    },
-                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
-                );
-            } else {
-                setWeatherError('Geolocalização não é suportada.');
-                setIsLoading(false);
-            }
-        };
-
-        getLocation();
-    }, []);
-
-    return { weather, weatherError, isLoading };
+    return { 
+        weather, 
+        weatherError, 
+        isLoading,
+        lastUpdated,
+        refreshWeather: getLocationAndFetchWeather
+    };
 };
+
+    

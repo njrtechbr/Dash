@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { GripVertical, Star } from 'lucide-react';
+import { GripVertical, Star, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLinks } from '@/hooks/use-links';
 import { LinkCard } from './link-card';
@@ -21,6 +21,10 @@ import { MovieCard } from './movie-card';
 import { useMovies } from '@/hooks/use-movies';
 import { SidebarInset } from '../ui/sidebar';
 import { FinancialChartDialog } from './financial-chart-dialog';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 interface InfoCardProps {
@@ -30,24 +34,58 @@ interface InfoCardProps {
   error?: string | null;
   isLoading: boolean;
   onCardClick?: () => void;
+  lastUpdated?: Date | null;
+  onRefresh?: () => void;
 }
 
-const InfoCard = ({ data, title, icon: Icon, error, isLoading, onCardClick }: InfoCardProps) => {
-    const { value, change, isPositive, footer } = data || {};
+const InfoCard = ({ data, title, icon: Icon, error, isLoading, onCardClick, lastUpdated, onRefresh }: InfoCardProps) => {
+    const { value, change, isPositive } = data || {};
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+    const handleRefresh = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!onRefresh) return;
+
+        setIsRefreshing(true);
+        await onRefresh();
+        setIsRefreshing(false);
+    }
+
+    const lastUpdatedText = React.useMemo(() => {
+        if (!lastUpdated) return 'Buscando...';
+        return `Atualizado ${formatDistanceToNow(lastUpdated, { addSuffix: true, locale: ptBR })}`;
+    }, [lastUpdated]);
+
     return (
         <Card 
             className={cn(
-                "shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-card/80 backdrop-blur-sm",
+                "shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-card/80 backdrop-blur-sm flex flex-col",
                 onCardClick && "cursor-pointer"
             )}
             onClick={onCardClick}
         >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+                <div className='flex items-center gap-2'>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    {onRefresh && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRefresh} disabled={isRefreshing}>
+                                        <RefreshCw className={cn("h-3 w-3 text-muted-foreground", isRefreshing && "animate-spin")} />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Atualizar dados</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
             </CardHeader>
-            <CardContent>
-                {isLoading ? (
+            <CardContent className='flex-grow'>
+                {isLoading && !value ? (
                 <Skeleton className="h-8 w-3/4 bg-muted/50" />
                 ) : error && !value ? (
                 <p className="text-sm text-destructive">{error}</p>
@@ -55,7 +93,7 @@ const InfoCard = ({ data, title, icon: Icon, error, isLoading, onCardClick }: In
                 <div className="text-2xl font-bold">{value}</div>
                 ) : null}
 
-                {isLoading ? (
+                {isLoading && change === undefined ? (
                     <Skeleton className="h-4 w-1/2 mt-1 bg-muted/50" />
                 ) : change !== null && change !== undefined ? (
                     <div className="flex items-center text-xs text-muted-foreground">
@@ -66,18 +104,18 @@ const InfoCard = ({ data, title, icon: Icon, error, isLoading, onCardClick }: In
                             {isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" /> }
                             {change}
                         </span>
-                        <span className="ml-2 hidden sm:inline-block">{footer}</span>
                     </div>
-                ) : footer ? (
-                    <p className="text-xs text-muted-foreground">{footer}</p>
                 ) : null }
+            </CardContent>
+            <CardContent className="p-4 pt-0">
+                 <p className="text-xs text-muted-foreground">{lastUpdatedText}</p>
             </CardContent>
         </Card>
     )
 };
 
 const WeatherCard = () => {
-    const { weather, weatherError, isLoading } = useWeather();
+    const { weather, weatherError, isLoading, lastUpdated, refreshWeather } = useWeather();
     const cardInfo = AVAILABLE_CARDS.find(c => c.id === 'weather')!;
     
     return <InfoCard
@@ -86,12 +124,14 @@ const WeatherCard = () => {
         data={{
             value: weather ? `${weather.temp}°C` : null,
             footer: weather ? `Em sua localização` : 'Buscando...',
-            change: null,
+            change: weather ? weather.description : null,
             isPositive: null
         }}
         icon={cardInfo.icon}
         error={weatherError}
         isLoading={isLoading}
+        lastUpdated={lastUpdated}
+        onRefresh={refreshWeather}
     />
 };
 
@@ -133,7 +173,7 @@ export default function Dashboard() {
   const [isChartOpen, setIsChartOpen] = React.useState(false);
   const [selectedFinancialCard, setSelectedFinancialCard] = React.useState<FinancialInfo | null>(null);
 
-  const { financialData, financialError, isLoading: isFinancialLoading } = useFinancialData();
+  const { financialData, financialError, isLoading: isFinancialLoading, lastUpdated: financialLastUpdated, refreshFinancialData } = useFinancialData();
   const { shows, isLoaded: areShowsLoaded } = useShows();
   const { movies, isLoaded: areMoviesLoaded } = useMovies();
   const { settings, isLoaded: areSettingsLoaded } = useDashboardSettings();
@@ -208,6 +248,8 @@ export default function Dashboard() {
                 error={financialError}
                 isLoading={isFinancialLoading}
                 onCardClick={() => handleFinancialCardClick(data)}
+                lastUpdated={financialLastUpdated}
+                onRefresh={refreshFinancialData}
             />
     }
   };
@@ -357,3 +399,5 @@ export default function Dashboard() {
     </SidebarInset>
   );
 }
+
+    

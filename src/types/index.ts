@@ -167,9 +167,11 @@ export interface HistoryData {
 
 export interface FinancialInfo {
     value: string | null;
-    name: string;
+    name?: string;
     change: string | null;
     isPositive: boolean | null;
     footer?: string | null;
     history?: HistoryData[];
 }
+
+    
