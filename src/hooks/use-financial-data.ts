@@ -10,6 +10,7 @@ const CODES = ['USD-BRL', 'EUR-BRL'];
 const HISTORY_DAYS = 7;
 
 const CACHE_DURATION = 300000; // 5 minutos
+const STALE_DURATION = 60000; // 1 minuto para dados "stale"
 
 const formatCurrencyValue = (valueStr: string | number): string => {
     const value = parseFloat(String(valueStr));
@@ -28,19 +29,6 @@ export const useFinancialData = () => {
         setIsLoading(true);
         let currentError: string | null = null;
         const finalData: Record<string, FinancialInfo> = {};
-
-        const lastFetch = localStorage.getItem('financialLastFetch');
-        const cachedData = localStorage.getItem('financialData');
-        
-        if (lastFetch && cachedData && (new Date().getTime() - Number(lastFetch)) < CACHE_DURATION) {
-            const parsedCache = JSON.parse(cachedData) as Record<string, FinancialInfo>;
-             if (CODES.every(code => parsedCache[code])) {
-                setFinancialData(parsedCache);
-                setFinancialError(null);
-                setIsLoading(false);
-                return;
-            }
-        }
         
         try {
             const [currentDataResponse, ...historyResponses] = await Promise.all([
@@ -80,27 +68,25 @@ export const useFinancialData = () => {
 
              if (Object.keys(finalData).length > 0) {
                  setFinancialData(finalData);
-                 localStorage.setItem('financialData', JSON.stringify(finalData));
-                 localStorage.setItem('financialLastFetch', new Date().getTime().toString());
             }
 
         } catch (error) {
             console.error("Currency fetch error:", error);
             if (error instanceof Error) currentError = error.message;
-            // Fallback to cache if API fails
-            if(cachedData) {
-                setFinancialData(JSON.parse(cachedData));
-            }
         }
 
         setFinancialError(currentError);
         setIsLoading(false);
 
     }, []);
-
+    
     useEffect(() => {
+        // Busca inicial
         fetchData();
+
+        // Busca em intervalos regulares
         const intervalId = setInterval(fetchData, CACHE_DURATION);
+
         return () => clearInterval(intervalId);
     }, [fetchData]);
 

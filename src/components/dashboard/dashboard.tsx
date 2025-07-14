@@ -29,11 +29,10 @@ interface InfoCardProps {
   icon: React.ElementType;
   error?: string | null;
   isLoading: boolean;
-  prefix?: string;
   onCardClick?: () => void;
 }
 
-const InfoCard = ({ data, title, icon: Icon, error, isLoading, prefix, onCardClick }: InfoCardProps) => {
+const InfoCard = ({ data, title, icon: Icon, error, isLoading, onCardClick }: InfoCardProps) => {
     const { value, change, isPositive, footer } = data || {};
     return (
         <Card 
@@ -53,7 +52,7 @@ const InfoCard = ({ data, title, icon: Icon, error, isLoading, prefix, onCardCli
                 ) : error && !value ? (
                 <p className="text-sm text-destructive">{error}</p>
                 ) : value ? (
-                <div className="text-2xl font-bold">{prefix}{value}</div>
+                <div className="text-2xl font-bold">{value}</div>
                 ) : null}
 
                 {isLoading ? (
@@ -165,7 +164,7 @@ export default function Dashboard() {
   };
   
   const handleFinancialCardClick = (data: FinancialInfo) => {
-    if (data.history) {
+    if (data && data.history && data.history.length > 0) {
         setSelectedFinancialCard(data);
         setIsChartOpen(true);
     }
@@ -200,12 +199,10 @@ export default function Dashboard() {
             return <TimeCard key={card.id} />;
         default: // Financial cards
             const data = financialData[card.id];
-            const prefix = ['USD-BRL', 'EUR-BRL'].includes(card.id) ? 'R$ ' : '';
             
             return <InfoCard
                 key={card.id}
                 title={card.title}
-                prefix={prefix}
                 data={data}
                 icon={card.icon}
                 error={financialError}
