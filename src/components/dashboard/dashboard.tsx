@@ -85,7 +85,7 @@ const WeatherCard = () => {
         title={cardInfo.title}
         data={{
             value: weather ? `${weather.temp}°C` : null,
-            footer: weather ? `Em ${weather.city}` : 'Buscando...',
+            footer: weather ? `Em sua localização` : 'Buscando...',
             change: null,
             isPositive: null
         }}
