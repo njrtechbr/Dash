@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 
 // Usando API gratuita Open-Meteo para previsão e Geocoding
-const GEO_API_URL = 'https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name=';
 const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast?current_weather=true';
 
 interface WeatherData {
@@ -41,15 +40,18 @@ export const useWeather = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchWeather = (lat: number, lon: number, city: string) => {
+        const fetchWeather = (lat: number, lon: number) => {
              fetch(`${WEATHER_API_URL}&latitude=${lat}&longitude=${lon}`)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Falha na resposta da API de clima');
+                    return res.json();
+                })
                 .then(data => {
-                    if (data.current_weather) {
+                    if (data && data.current_weather) {
                         const { temperature, weathercode } = data.current_weather;
                         setWeather({
                             temp: Math.round(temperature).toString(),
-                            city: city,
+                            city: 'Em sua localização',
                             description: WEATHER_CODES[weathercode] || 'Condição desconhecida'
                         });
                         setWeatherError(null);
@@ -58,9 +60,9 @@ export const useWeather = () => {
                     }
                 })
                 .catch(error => {
-                    if (error instanceof Error) setWeatherError(error.message);
-                    else setWeatherError('Erro ao buscar clima.');
-                    console.error(error);
+                    const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar clima.';
+                    setWeatherError(errorMessage);
+                    console.error("Weather fetch error:", error);
                 })
                 .finally(() => setIsLoading(false));
         }
@@ -71,25 +73,17 @@ export const useWeather = () => {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const { latitude, longitude } = position.coords;
-                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-                          .then(res => res.json())
-                          .then(geoData => {
-                              const city = geoData.address.city || geoData.address.town || geoData.address.village || 'sua localização';
-                              fetchWeather(latitude, longitude, city);
-                          }).catch(() => {
-                            // Fallback se a geocodificação reversa falhar
-                             fetchWeather(latitude, longitude, 'sua localização');
-                          })
+                        fetchWeather(latitude, longitude);
                     },
                     (error) => {
                         setWeatherError('Não foi possível obter a localização.');
-                        console.error(error);
+                        console.error("Geolocation error:", error);
                         setIsLoading(false);
                     },
                     { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
                 );
             } else {
-                setWeatherError('Geolocalização não é suportada por este navegador.');
+                setWeatherError('Geolocalização não é suportada.');
                 setIsLoading(false);
             }
         };
