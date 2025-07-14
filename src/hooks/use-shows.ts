@@ -5,15 +5,12 @@ import type { Show, WatchedEpisode, Episode, TMDbShowDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { getShowDetails } from '@/services/tmdb';
 import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  onSnapshot,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+  subscribeToShows,
+  addShow as dbAddShow,
+  removeShow as dbRemoveShow,
+  toggleWatchedEpisode as dbToggleWatchedEpisode,
+  toggleSeasonWatched as dbToggleSeasonWatched
+} from '@/services/shows-service';
 
 interface ShowsState {
   shows: Show[];
@@ -40,22 +37,9 @@ const useShowsStore = create<ShowsState>()(
       isShowDetailsOpen: false,
 
       initializeShows: () => {
-        const q = query(collection(db, 'shows'));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const shows: Show[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                shows.push({ 
-                    id: data.id, // TMDb ID
-                    docId: doc.id, // Firestore Doc ID
-                    ...data 
-                } as Show);
-            });
+        const unsubscribe = subscribeToShows((shows) => {
             set({ shows });
             get().fetchMissingDetails(shows);
-        }, (error) => {
-            console.error("Error fetching shows: ", error);
-            set({ isLoaded: true });
         });
         return unsubscribe;
       },
@@ -95,38 +79,22 @@ const useShowsStore = create<ShowsState>()(
           });
           return;
         }
-        
-        try {
-          await addDoc(collection(db, 'shows'), {
-            id: show.id,
-            name: show.name,
-            poster_path: show.poster_path,
-            watched_episodes: []
-          });
-          toast({
+        await dbAddShow(show);
+        toast({
             title: 'Série Adicionada!',
             description: `${show.name} foi adicionado ao seu painel.`
-          });
-        } catch(e) {
-          console.error("Error adding show: ", e);
-          toast({ variant: 'destructive', title: 'Erro ao adicionar série' });
-        }
+        });
       },
 
       removeShow: async (showId) => {
         const showToRemove = get().shows.find(s => s.id === showId);
         if (showToRemove && showToRemove.docId) {
-          try {
-            await deleteDoc(doc(db, "shows", showToRemove.docId));
-            toast({
-                variant: 'destructive',
-                title: 'Série Removida',
-                description: `${showToRemove.name} foi removido do seu painel.`
-            });
-          } catch(e) {
-             console.error("Error removing show: ", e);
-             toast({ variant: 'destructive', title: 'Erro ao remover série' });
-          }
+          await dbRemoveShow(showToRemove.docId);
+          toast({
+              variant: 'destructive',
+              title: 'Série Removida',
+              description: `${showToRemove.name} foi removido do seu painel.`
+          });
         }
       },
 
@@ -134,53 +102,14 @@ const useShowsStore = create<ShowsState>()(
         const showToUpdate = get().shows.find(s => s.id === showId);
         if (!showToUpdate || !showToUpdate.docId) return;
 
-        const episodeId = `S${episode.season_number}E${episode.episode_number}`;
-        const watchedEpisodes = showToUpdate.watched_episodes || [];
-        let newWatchedEpisodes: WatchedEpisode[];
-
-        if (isWatched) {
-            if (watchedEpisodes.some(e => e.episodeId === episodeId)) return;
-            newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName: episode.name, watchedAt: new Date().toISOString() }];
-        } else {
-            newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
-        }
-
-        try {
-            const docRef = doc(db, "shows", showToUpdate.docId);
-            await updateDoc(docRef, { watched_episodes: newWatchedEpisodes });
-        } catch(e) {
-            console.error("Error updating watched episodes: ", e);
-            toast({ variant: 'destructive', title: 'Erro ao atualizar episódios' });
-        }
+        await dbToggleWatchedEpisode(showToUpdate, episode, isWatched);
       },
 
       toggleSeasonWatched: async (showId, seasonEpisodes, markAsWatched) => {
         const showToUpdate = get().shows.find(s => s.id === showId);
         if (!showToUpdate || !showToUpdate.docId) return;
         
-        let watchedEpisodes = showToUpdate.watched_episodes || [];
-
-        if (markAsWatched) {
-            const episodesToAdd = seasonEpisodes
-                .map(ep => ({
-                episodeId: `S${ep.season_number}E${ep.episode_number}`,
-                episodeName: ep.name,
-                watchedAt: new Date().toISOString()
-                }))
-                .filter(epToAdd => !watchedEpisodes.some(existingEp => existingEp.episodeId === epToAdd.episodeId));
-            watchedEpisodes = [...watchedEpisodes, ...episodesToAdd];
-        } else {
-            const seasonEpisodeIds = new Set(seasonEpisodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
-            watchedEpisodes = watchedEpisodes.filter(ep => !seasonEpisodeIds.has(ep.episodeId));
-        }
-
-         try {
-            const docRef = doc(db, "shows", showToUpdate.docId);
-            await updateDoc(docRef, { watched_episodes: watchedEpisodes });
-        } catch(e) {
-            console.error("Error updating season watched episodes: ", e);
-            toast({ variant: 'destructive', title: 'Erro ao atualizar temporada' });
-        }
+        await dbToggleSeasonWatched(showToUpdate, seasonEpisodes, markAsWatched);
       },
 
       handleShowDetailsClick: (showId: number) => {

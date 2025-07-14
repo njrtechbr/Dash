@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Link {
+  id          String    @id @default(cuid())
+  title       String
+  url         String
+  icon        String
+  group       String
+  description String?
+  isFavorite  Boolean?  @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model Movie {
+  id          Int     @id
+  docId       String? @unique
+  title       String
+  poster_path String?
+  watched     Boolean
+}
+
+model Show {
+  id               Int      @id
+  docId            String?  @unique
+  name             String
+  poster_path      String?
+  watched_episodes WatchedEpisode[]
+}
+
+model WatchedEpisode {
+  id          String   @id @default(cuid())
+  episodeId   String
+  episodeName String
+  watchedAt   DateTime
+  showId      Int
+  show        Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  @@unique([showId, episodeId])
+}

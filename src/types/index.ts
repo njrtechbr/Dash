@@ -3,14 +3,14 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type LinkItem = {
-  id: string; // Firestore document ID
+  id: string; // Firestore document ID or Prisma cuid()
   title: string;
   url: string;
   icon: string;
   group: string;
   description?: string;
   isFavorite?: boolean;
-  createdAt: any; // Can be Firebase Timestamp
+  createdAt: any; // Can be Firebase Timestamp or JS Date
 };
 
 export type Icon = {
@@ -19,15 +19,17 @@ export type Icon = {
 };
 
 export type WatchedEpisode = {
-    episodeId: string;
-    episodeName: string;
-    watchedAt: string; // ISO 8601 date string
+  id?: string; // Prisma cuid()
+  episodeId: string; // S<season>E<episode>
+  episodeName: string;
+  watchedAt: string; // ISO 8601 date string
+  showId?: number; // Foreign key in Prisma
 }
 
 export type Show = {
   id: number; // TMDb ID
   docId?: string; // Firestore Doc ID
-  name: string;
+  name:string;
   poster_path: string | null;
   watched_episodes?: WatchedEpisode[];
 }

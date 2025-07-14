@@ -5,15 +5,11 @@ import type { Movie, TMDbMovieDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { getMovieDetails } from '@/services/tmdb';
 import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  onSnapshot,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+  addMovie as dbAddMovie,
+  removeMovie as dbRemoveMovie,
+  toggleMovieWatched as dbToggleMovieWatched,
+  subscribeToMovies
+} from '@/services/movies-service';
 
 interface MoviesState {
   movies: Movie[];
@@ -38,22 +34,9 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
     isMovieDetailsOpen: false,
 
     initializeMovies: () => {
-        const q = query(collection(db, 'movies'));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const movies: Movie[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                movies.push({ 
-                    id: data.id, // TMDb ID
-                    docId: doc.id, // Firestore doc ID
-                    ...data 
-                } as Movie);
-            });
+        const unsubscribe = subscribeToMovies((movies) => {
             set({ movies });
             get().fetchMissingDetails(movies);
-        }, (error) => {
-            console.error("Error fetching movies: ", error);
-            set({ isLoaded: true });
         });
         return unsubscribe;
     },
@@ -93,56 +76,34 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
             });
             return;
         }
-
-        try {
-            await addDoc(collection(db, 'movies'), {
-                id: movie.id,
-                title: movie.title,
-                poster_path: movie.poster_path,
-                watched: false
-            });
-            toast({
-              title: 'Filme Adicionado!',
-              description: `${movie.title} foi adicionado à sua lista.`,
-            });
-        } catch(e) {
-            console.error("Error adding movie: ", e);
-            toast({ variant: 'destructive', title: 'Erro ao adicionar filme' });
-        }
+        await dbAddMovie(movie);
+        toast({
+            title: 'Filme Adicionado!',
+            description: `${movie.title} foi adicionado à sua lista.`,
+        });
     },
 
     removeMovie: async (movieId) => {
         const movieToRemove = get().movies.find((m) => m.id === movieId);
         if (movieToRemove && movieToRemove.docId) {
-            try {
-                await deleteDoc(doc(db, "movies", movieToRemove.docId));
-                toast({
-                    variant: 'destructive',
-                    title: 'Filme Removido',
-                    description: `${movieToRemove.title} foi removido da sua lista.`,
-                });
-            } catch (e) {
-                console.error("Error removing movie: ", e);
-                toast({ variant: 'destructive', title: 'Erro ao remover filme' });
-            }
+            await dbRemoveMovie(movieToRemove.docId);
+            toast({
+                variant: 'destructive',
+                title: 'Filme Removido',
+                description: `${movieToRemove.title} foi removido da sua lista.`,
+            });
         }
     },
 
     toggleMovieWatched: async (movieId) => {
         const movieToToggle = get().movies.find((m) => m.id === movieId);
         if (movieToToggle && movieToToggle.docId) {
-            try {
-                const docRef = doc(db, "movies", movieToToggle.docId);
-                const newWatchedState = !movieToToggle.watched;
-                await updateDoc(docRef, { watched: newWatchedState });
-                toast({
-                    title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
-                    description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
-                });
-            } catch(e) {
-                console.error("Error toggling watched state: ", e);
-                toast({ variant: 'destructive', title: 'Erro ao atualizar filme' });
-            }
+            const newWatchedState = !movieToToggle.watched;
+            await dbToggleMovieWatched(movieToToggle.docId, newWatchedState);
+            toast({
+                title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
+                description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
+            });
         }
     },
 
