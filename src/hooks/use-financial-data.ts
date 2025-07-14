@@ -19,14 +19,19 @@ interface FinancialInfo {
 const CACHE_DURATION = 300000; // 5 minutos
 
 const formatCurrencyValue = (code: string, data: any): string => {
+    const value = parseFloat(data.bid);
+    if (isNaN(value)) {
+        return 'N/A';
+    }
+
     switch (code) {
         case 'USD-BRL':
         case 'EUR-BRL':
-            return parseFloat(data.bid).toFixed(2);
+            return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         case 'BTC-BRL':
-             return (parseFloat(data.bid) * 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             return (value * 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         default:
-            return data.bid ? parseFloat(data.bid).toFixed(2) : 'N/A';
+            return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 }
 
