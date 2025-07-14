@@ -22,28 +22,29 @@ model Link {
 }
 
 model Movie {
-  id          Int      @id @default(autoincrement())
-  tmdbId      Int      @unique
-  docId       String?  @unique
+  id          Int      @id // TMDb ID
   title       String
   poster_path String?
   watched     Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 model Show {
-  id              Int      @id @default(autoincrement())
-  tmdbId          Int      @unique
-  docId           String?  @unique
+  id              Int      @id // TMDb ID
   name            String
   poster_path     String?
   watched_episodes WatchedEpisode[]
+  createdAt       DateTime @default(now())
 }
 
 model WatchedEpisode {
-  id           String   @id @default(cuid())
-  episodeId    String   // Formato S<season>E<episode>
-  episodeName  String
-  watchedAt    DateTime
-  show         Show     @relation(fields: [showId], references: [id])
-  showId       Int
+  id          String   @id @default(cuid())
+  episodeId   String   // S<season>E<episode>
+  episodeName String
+  watchedAt   DateTime @default(now())
+  
+  showId      Int
+  show        Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  @@unique([showId, episodeId])
 }

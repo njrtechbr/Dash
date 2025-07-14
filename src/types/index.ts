@@ -19,7 +19,7 @@ export type Icon = {
 };
 
 export type WatchedEpisode = {
-  id?: string; // Prisma cuid()
+  id: string; // Prisma cuid()
   episodeId: string; // S<season>E<episode>
   episodeName: string;
   watchedAt: string; // ISO 8601 date string
@@ -173,5 +173,3 @@ export interface FinancialInfo {
     footer?: string | null;
     history?: HistoryData[];
 }
-
-    
