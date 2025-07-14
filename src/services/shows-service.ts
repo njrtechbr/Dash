@@ -1,5 +1,3 @@
-'use server';
-
 import { db } from '@/lib/firebase';
 import type { Show, WatchedEpisode, Episode } from '@/types';
 import {

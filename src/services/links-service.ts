@@ -1,5 +1,3 @@
-'use server';
-
 import { db } from '@/lib/firebase';
 import type { LinkItem } from '@/types';
 import {
