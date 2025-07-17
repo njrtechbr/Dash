@@ -1,47 +1,42 @@
-# Dockerfile para Dash (Next.js)
-
-# Imagem base com tudo necessário para build
-FROM node:20 AS builder
+# Dockerfile otimizado para Portainer Git Build
+FROM node:20-slim
 
 WORKDIR /app
 
-# Instala dependências globais
+# Instalar dependências de sistema necessárias para build
 RUN apt-get update && apt-get install -y \
+    curl \
     python3 \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Primeiro, copie apenas os arquivos de dependências para melhor cache
+# Configurar variáveis para evitar problemas de build
+ENV NODE_OPTIONS="--max_old_space_size=4096"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copiar arquivos de configuração primeiro (para melhor cache)
 COPY package*.json ./
+COPY tsconfig.json ./
+COPY next.config.ts ./
+COPY tailwind.config.ts ./
+COPY postcss.config.mjs ./
 
-# Use npm install em vez de npm ci (mais tolerante a erros)
-RUN npm install
+# Instalar dependências com configurações específicas para Portainer
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 
-# Agora copie o resto do código
+# Copiar código fonte
 COPY . .
 
-# Gere o cliente prisma e o build
+# Gerar Prisma client
 RUN npx prisma generate
+
+# Build da aplicação
 RUN npm run build
 
-# Imagem final para produção
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-# Instala pacotes necessários para runtime
-RUN apk add --no-cache curl
-
-# Copie apenas arquivos necessários
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/.env* ./
-COPY --from=builder /app/next.config.ts ./
+# Limpar dependências desnecessárias
+RUN npm prune --production
 
 EXPOSE 3000
 
-# Script de inicialização
-CMD ["npm", "start"]
+# Script de inicialização que executa migrações e inicia app
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]

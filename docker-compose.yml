@@ -1,47 +1,47 @@
+# Docker Compose otimizado para uso com Portainer Git Build
 version: '3.8'
+
 services:
-  dash:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  app:
+    build: .
     container_name: fluxdash-app
     restart: unless-stopped
     ports:
       - "3001:3000"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://dash:dash@postgres:5432/dash?schema=public
-    command: >
-      sh -c "npx prisma migrate deploy && npm start"
+      - DATABASE_URL=postgresql://dash:dash@db:5432/dash?schema=public
+      - TMDB_API_KEY=${TMDB_API_KEY:-e8d22c755d73bec02627838a3f4a7909}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-AIzaSyC7KHunXJgj8LXL0UkxGil8R_Vp9h_uLBw}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: fluxdash-postgres
+    container_name: fluxdash-db
     restart: always
     environment:
       POSTGRES_USER: dash
       POSTGRES_PASSWORD: dash
       POSTGRES_DB: dash
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dash"]
+      test: ["CMD-SHELL", "pg_isready -U dash -d dash"]
       interval: 10s
       timeout: 5s
       retries: 5
-      
+
 volumes:
-  pgdata:
-    name: fluxdash-pgdata
-  node_modules:
+  postgres_data:
+    name: fluxdash-postgres-data
