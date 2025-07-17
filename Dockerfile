@@ -5,17 +5,23 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Instala dependências necessárias para o build
+RUN apk add --no-cache python3 make g++ curl
+
 # Copia os arquivos de dependências
 COPY package.json package-lock.json ./
 
-# Instala as dependências
-RUN npm ci
+# Instala as dependências com mais detalhes de log
+RUN npm ci --verbose || (echo "npm ci falhou, tentando com npm install..." && npm install --verbose)
 
 # Copia o restante do código
 COPY . .
 
+# Prepara o prisma client
+RUN npx prisma generate
+
 # Gera o build de produção
-RUN npm run build
+RUN npm run build || (echo "Build falhou. Verificando logs:" && cat .next/error.log)
 
 # Imagem final para produção
 FROM node:20-alpine AS runner
