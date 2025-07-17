@@ -3,7 +3,9 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile.simple
     container_name: fluxdash-app
     restart: unless-stopped
     ports:
