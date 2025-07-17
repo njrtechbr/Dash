@@ -73,15 +73,16 @@ export const useWeather = () => {
                     fetchWeatherForCoords(latitude, longitude);
                 },
                 (error) => {
-                    setWeatherError('Não foi possível obter a localização.');
-                    console.error("Geolocation error:", error);
-                    setIsLoading(false);
+                    // Usar localização padrão em caso de erro
+                    console.warn("Geolocation error, using default location:", error);
+                    fetchWeatherForCoords(-23.5505, -46.6333); // São Paulo como padrão
                 },
                 { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
             );
         } else {
-            setWeatherError('Geolocalização não é suportada.');
-            setIsLoading(false);
+            // Fallback: usar localização padrão (São Paulo) se geolocalização não estiver disponível
+            console.warn('Geolocalização não suportada, usando localização padrão');
+            fetchWeatherForCoords(-23.5505, -46.6333); // São Paulo como padrão
         }
     }, [fetchWeatherForCoords]);
 

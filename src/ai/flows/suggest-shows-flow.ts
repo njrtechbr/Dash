@@ -26,7 +26,12 @@ const SuggestShowsOutputSchema = z.object({
 export type SuggestShowsOutput = z.infer<typeof SuggestShowsOutputSchema>;
 
 export async function suggestShows(input: SuggestShowsInput): Promise<SuggestShowsOutput> {
-  return suggestShowsFlow(input);
+  try {
+    return await suggestShowsFlow(input);
+  } catch (error) {
+    console.warn('Erro na sugestão de séries:', error);
+    return { recommendations: [] };
+  }
 }
 
 const prompt = ai.definePrompt({

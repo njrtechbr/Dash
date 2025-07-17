@@ -27,8 +27,42 @@ const SuggestLinkDetailsOutputSchema = z.object({
 export type SuggestLinkDetailsOutput = z.infer<typeof SuggestLinkDetailsOutputSchema>;
 
 export async function suggestLinkDetails(input: SuggestLinkDetailsInput): Promise<SuggestLinkDetailsOutput> {
-  return suggestLinkDetailsFlow(input);
+  try {
+    return await suggestLinkDetailsFlow(input);
+  } catch (error) {
+    console.warn('Erro na sugestão de detalhes do link, usando fallback:', error);
+    
+    // Fallback: lógica simples baseada na URL
+    const url = input.url.toLowerCase();
+    let iconName = 'Link';
+    let group = 'Geral';
+    
+    if (url.includes('github')) {
+      iconName = 'Github';
+      group = 'Desenvolvimento';
+    } else if (url.includes('youtube') || url.includes('netflix') || url.includes('twitch')) {
+      iconName = 'Play';
+      group = 'Entretenimento';
+    } else if (url.includes('google') || url.includes('bing') || url.includes('duckduckgo')) {
+      iconName = 'Search';
+      group = 'Ferramentas';
+    } else if (url.includes('news') || url.includes('noticia') || url.includes('blog')) {
+      iconName = 'Globe';
+      group = 'Notícias';
+    } else if (url.includes('facebook') || url.includes('twitter') || url.includes('instagram')) {
+      iconName = 'Users';
+      group = 'Social';
+    }
+    
+    return {
+      iconName,
+      group,
+      description: `${input.title} - Link adicionado`
+    };
+  }
 }
+
+// Reativando recursos de IA
 
 const prompt = ai.definePrompt({
   name: 'suggestLinkDetailsPrompt',

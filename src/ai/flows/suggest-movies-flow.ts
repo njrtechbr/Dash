@@ -26,7 +26,12 @@ const SuggestMoviesOutputSchema = z.object({
 export type SuggestMoviesOutput = z.infer<typeof SuggestMoviesOutputSchema>;
 
 export async function suggestMovies(input: SuggestMoviesInput): Promise<SuggestMoviesOutput> {
-  return suggestMoviesFlow(input);
+  try {
+    return await suggestMoviesFlow(input);
+  } catch (error) {
+    console.warn('Erro na sugestão de filmes:', error);
+    return { recommendations: [] };
+  }
 }
 
 const prompt = ai.definePrompt({

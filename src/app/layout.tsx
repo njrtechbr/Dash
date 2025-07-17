@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DashboardSettingsProvider, ThemeWrapper } from '@/hooks/use-dashboard-settings';
 import { DialogManagers } from '@/components/dashboard/dialog-managers';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 export const metadata: Metadata = {
   title: 'FluxDash',
@@ -22,6 +23,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
+        <ErrorBoundary />
         <DashboardSettingsProvider>
           <ThemeWrapper>
             {children}
