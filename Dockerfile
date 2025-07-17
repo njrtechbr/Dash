@@ -1,41 +1,47 @@
 # Dockerfile para Dash (Next.js)
 
-# Imagem base oficial do Node.js
-FROM node:20-alpine AS builder
+# Imagem base com tudo necessário para build
+FROM node:20 AS builder
 
 WORKDIR /app
 
-# Instala dependências necessárias para o build
-RUN apk add --no-cache python3 make g++ curl
+# Instala dependências globais
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copia os arquivos de dependências
-COPY package.json package-lock.json ./
+# Primeiro, copie apenas os arquivos de dependências para melhor cache
+COPY package*.json ./
 
-# Instala as dependências com mais detalhes de log
-RUN npm ci --verbose || (echo "npm ci falhou, tentando com npm install..." && npm install --verbose)
+# Use npm install em vez de npm ci (mais tolerante a erros)
+RUN npm install
 
-# Copia o restante do código
+# Agora copie o resto do código
 COPY . .
 
-# Prepara o prisma client
+# Gere o cliente prisma e o build
 RUN npx prisma generate
-
-# Gera o build de produção
-RUN npm run build || (echo "Build falhou. Verificando logs:" && cat .next/error.log)
+RUN npm run build
 
 # Imagem final para produção
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 
-# Copia apenas os arquivos necessários do build
+# Instala pacotes necessários para runtime
+RUN apk add --no-cache curl
+
+# Copie apenas arquivos necessários
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src ./src
 COPY --from=builder /app/.env* ./
+COPY --from=builder /app/next.config.ts ./
 
 EXPOSE 3000
 
+# Script de inicialização
 CMD ["npm", "start"]
