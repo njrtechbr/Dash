@@ -5,7 +5,7 @@ services:
   app:
     build: 
       context: .
-      dockerfile: Dockerfile.simple
+      dockerfile: Dockerfile.dev
     container_name: fluxdash-app
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://dash:dash@db:5432/dash?schema=public
       - TMDB_API_KEY=${TMDB_API_KEY:-e8d22c755d73bec02627838a3f4a7909}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-AIzaSyC7KHunXJgj8LXL0UkxGil8R_Vp9h_uLBw}

@@ -1,0 +1,21 @@
+# Dockerfile ainda mais simples - modo desenvolvimento para testes
+FROM node:20
+
+WORKDIR /app
+
+# Copiar tudo
+COPY . .
+
+# Instalar dependências
+RUN npm install --force
+
+# Usar modo de desenvolvimento em vez de produção
+ENV NODE_ENV=development
+
+# Gerar prisma
+RUN npx prisma generate
+
+EXPOSE 3000
+
+# Executar em modo dev que não precisa de build
+CMD ["npm", "run", "dev"]

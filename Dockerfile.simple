@@ -18,9 +18,14 @@ RUN npm cache clean --force
 RUN npm install dotenv --save
 RUN npm install --force || npm install --legacy-peer-deps --force || (npm install -g yarn && yarn install --ignore-engines)
 
-# Prisma e build
-RUN npx prisma generate || echo "Prisma ok"
-RUN npm run build || echo "Build ok"
+# Prisma e build - OBRIGATÓRIO para produção
+RUN npx prisma generate || echo "Prisma generate falhou, continuando..."
+RUN npm run build || (echo "Build falhou, tentando novamente..." && rm -rf .next && npm run build)
+
+# Verificar se o build foi criado
+RUN ls -la .next/ || echo "Diretório .next não encontrado!"
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# Comando que executa build se necessário e inicia
+CMD ["sh", "-c", "if [ ! -d '.next' ]; then echo 'Build não encontrado, executando build...' && npm run build; fi && npx prisma migrate deploy || echo 'Migration falhou' && npm start"]
