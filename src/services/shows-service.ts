@@ -32,29 +32,42 @@ export async function getShows(): Promise<Show[]> {
 export function subscribeToShows(callback: (shows: Show[]) => void): () => void {
   let isActive = true;
   let lastDataHash = '';
+  let timeoutId: NodeJS.Timeout | null = null;
   
   const fetchAndNotify = async () => {
     if (!isActive) return;
     
-    const shows = await getShows();
-    const dataHash = JSON.stringify(shows);
-    
-    // Só notifica se os dados mudaram
-    if (dataHash !== lastDataHash) {
-      lastDataHash = dataHash;
-      callback(shows);
+    try {
+      const shows = await getShows();
+      const dataHash = JSON.stringify(shows);
+      
+      // Só notifica se os dados mudaram
+      if (dataHash !== lastDataHash) {
+        lastDataHash = dataHash;
+        callback(shows);
+      }
+      
+      // Agendar próxima verificação apenas se ainda estiver ativo
+      if (isActive) {
+        timeoutId = setTimeout(fetchAndNotify, 30000);
+      }
+    } catch (error) {
+      console.error("Error in fetchAndNotify for shows:", error);
+      // Em caso de erro, tentar novamente após um tempo
+      if (isActive) {
+        timeoutId = setTimeout(fetchAndNotify, 60000); // Tempo maior em caso de erro
+      }
     }
   };
 
   // Busca inicial
   fetchAndNotify();
 
-  // Polling reduzido para 30 segundos
-  const interval = setInterval(fetchAndNotify, 30000);
-
   return () => {
     isActive = false;
-    clearInterval(interval);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   };
 }
 

@@ -32,29 +32,42 @@ export async function getMovies(): Promise<Movie[]> {
 export function subscribeToMovies(callback: (movies: Movie[]) => void): () => void {
   let isActive = true;
   let lastDataHash = '';
+  let timeoutId: NodeJS.Timeout | null = null;
   
   const fetchAndNotify = async () => {
     if (!isActive) return;
     
-    const movies = await getMovies();
-    const dataHash = JSON.stringify(movies);
-    
-    // Só notifica se os dados mudaram
-    if (dataHash !== lastDataHash) {
-      lastDataHash = dataHash;
-      callback(movies);
+    try {
+      const movies = await getMovies();
+      const dataHash = JSON.stringify(movies);
+      
+      // Só notifica se os dados mudaram
+      if (dataHash !== lastDataHash) {
+        lastDataHash = dataHash;
+        callback(movies);
+      }
+      
+      // Agendar próxima verificação apenas se ainda estiver ativo
+      if (isActive) {
+        timeoutId = setTimeout(fetchAndNotify, 30000);
+      }
+    } catch (error) {
+      console.error("Error in fetchAndNotify for movies:", error);
+      // Em caso de erro, tentar novamente após um tempo
+      if (isActive) {
+        timeoutId = setTimeout(fetchAndNotify, 60000); // Tempo maior em caso de erro
+      }
     }
   };
 
   // Busca inicial
   fetchAndNotify();
 
-  // Polling reduzido para 30 segundos
-  const interval = setInterval(fetchAndNotify, 30000);
-
   return () => {
     isActive = false;
-    clearInterval(interval);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   };
 }
 

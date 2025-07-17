@@ -181,8 +181,14 @@ export const useShows = () => {
     const store = useShowsStore();
 
     useEffect(() => {
+        // Evitar múltiplas chamadas durante a montagem do componente
+        let isMounted = true;
         let lastDataHash = '';
-        const unsubscribe = subscribeToShows((shows) => {
+        
+        // Função para processar os dados recebidos
+        const processShows = (shows) => {
+            if (!isMounted) return;
+            
             // Ordena os shows e episódios antes de serializar
             const sortedShows = shows
                 .map(show => ({
@@ -204,8 +210,16 @@ export const useShows = () => {
                 store.setShows(shows);
                 if (!store.isLoaded) store.setLoaded(true);
             }
-        });
-        return unsubscribe;
+        };
+        
+        // Iniciar a subscrição apenas uma vez
+        const unsubscribe = subscribeToShows(processShows);
+        
+        // Limpeza ao desmontar
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

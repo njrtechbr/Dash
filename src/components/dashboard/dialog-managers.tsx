@@ -5,32 +5,43 @@ import * as React from 'react';
 import { useShows } from '@/hooks/use-shows';
 import { useMovies } from '@/hooks/use-movies';
 
+// Lazy load components to avoid circular dependencies
+const ShowDetailsDialog = React.lazy(() => 
+  import('@/components/dashboard/show-details-dialog').then(mod => ({ 
+    default: mod.ShowDetailsDialog 
+  }))
+);
+
+const MovieDetailsDialog = React.lazy(() => 
+  import('@/components/dashboard/movie-details-dialog').then(mod => ({ 
+    default: mod.MovieDetailsDialog 
+  }))
+);
+
 // This component can be placed in your layout to handle dialogs globally
 export function DialogManagers() {
     const { isShowDetailsOpen, setShowDetailsOpen, showDetailsId } = useShows();
     const { isMovieDetailsOpen, setMovieDetailsOpen, movieDetailsId } = useMovies();
 
-    // Using dynamic import to avoid circular dependency issues at build time
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ShowDetailsDialog = require('@/components/dashboard/show-details-dialog').ShowDetailsDialog;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const MovieDetailsDialog = require('@/components/dashboard/movie-details-dialog').MovieDetailsDialog;
-
     return (
         <>
-            {showDetailsId && (
-                <ShowDetailsDialog
-                open={isShowDetailsOpen}
-                onOpenChange={setShowDetailsOpen}
-                showId={showDetailsId}
-                />
+            {showDetailsId && isShowDetailsOpen && (
+                <React.Suspense fallback={null}>
+                    <ShowDetailsDialog
+                        open={isShowDetailsOpen}
+                        onOpenChange={setShowDetailsOpen}
+                        showId={showDetailsId}
+                    />
+                </React.Suspense>
             )}
-            {movieDetailsId && (
-                <MovieDetailsDialog
-                open={isMovieDetailsOpen}
-                onOpenChange={setMovieDetailsOpen}
-                movieId={movieDetailsId}
-                />
+            {movieDetailsId && isMovieDetailsOpen && (
+                <React.Suspense fallback={null}>
+                    <MovieDetailsDialog
+                        open={isMovieDetailsOpen}
+                        onOpenChange={setMovieDetailsOpen}
+                        movieId={movieDetailsId}
+                    />
+                </React.Suspense>
             )}
         </>
     );

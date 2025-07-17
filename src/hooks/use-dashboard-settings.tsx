@@ -34,9 +34,15 @@ export function DashboardSettingsProvider({ children }: { children: ReactNode })
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // Evitar múltiplas chamadas durante a montagem do componente
+    let isMounted = true;
+    
     try {
+      // Verificar se já está carregado para evitar carregamentos duplicados
+      if (isLoaded) return;
+      
       const storedSettings = window.localStorage.getItem(STORAGE_KEY);
-      if (storedSettings) {
+      if (storedSettings && isMounted) {
         const parsedSettings = JSON.parse(storedSettings) as Partial<DashboardSettings>;
         
         const validIds = parsedSettings.activeCardIds?.filter((id: string) => 
@@ -48,15 +54,24 @@ export function DashboardSettingsProvider({ children }: { children: ReactNode })
             backgroundUrl: parsedSettings.backgroundUrl || null,
             theme: parsedSettings.theme || 'system',
         });
-      } else {
+      } else if (isMounted) {
         setSettingsState(DEFAULT_SETTINGS);
       }
     } catch (error) {
       console.error('Failed to load dashboard settings from local storage:', error);
-      setSettingsState(DEFAULT_SETTINGS);
+      if (isMounted) {
+        setSettingsState(DEFAULT_SETTINGS);
+      }
     }
-    setIsLoaded(true);
-  }, []);
+    
+    if (isMounted) {
+      setIsLoaded(true);
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoaded]);
 
   const setSettings = useCallback((newSettings: DashboardSettings) => {
     setSettingsState(newSettings);
@@ -85,9 +100,12 @@ export const useDashboardSettings = (): DashboardSettingsContextType => {
 };
 
 export function ThemeWrapper({ children }: { children: ReactNode }) {
-  const { settings } = useDashboardSettings();
+  const { settings, isLoaded } = useDashboardSettings();
 
   useEffect(() => {
+    // Só aplicar o tema quando as configurações estiverem carregadas
+    if (!isLoaded) return;
+    
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
@@ -97,7 +115,7 @@ export function ThemeWrapper({ children }: { children: ReactNode }) {
     } else {
       root.classList.add(settings.theme);
     }
-  }, [settings.theme]);
+  }, [settings.theme, isLoaded]);
 
   return <>{children}</>;
 }

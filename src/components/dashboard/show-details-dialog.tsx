@@ -61,30 +61,43 @@ export function ShowDetailsDialog({ open, onOpenChange, showId }: ShowDetailsDia
     const { toast } = useToast();
 
     React.useEffect(() => {
-        if (open) {
+        // Evitar múltiplas chamadas durante a montagem do componente
+        let isMounted = true;
+        
+        if (open && showId) {
             const fetchAllDetails = async () => {
                 setIsLoading(true);
                 try {
                     const showDetails = await getShowDetails(showId);
-                    if (showDetails) {
+                    if (isMounted && showDetails) {
                         setDetails(showDetails);
                         const seasonNumbers = showDetails.seasons.map(s => s.season_number);
                         const seasonsDetails = await getAllSeasonsDetails(showId, seasonNumbers);
-                        setSeasons(seasonsDetails.sort((a,b) => a.season_number - b.season_number));
+                        if (isMounted) {
+                            setSeasons(seasonsDetails.sort((a,b) => a.season_number - b.season_number));
+                        }
                     }
                 } catch (error) {
                     console.error("Error fetching show details:", error);
-                    toast({
-                        variant: "destructive",
-                        title: "Erro ao buscar detalhes",
-                        description: "Não foi possível carregar os detalhes da série."
-                    })
+                    if (isMounted) {
+                        toast({
+                            variant: "destructive",
+                            title: "Erro ao buscar detalhes",
+                            description: "Não foi possível carregar os detalhes da série."
+                        });
+                    }
                 } finally {
-                    setIsLoading(false);
+                    if (isMounted) {
+                        setIsLoading(false);
+                    }
                 }
             };
             fetchAllDetails();
         }
+        
+        return () => {
+            isMounted = false;
+        };
     }, [showId, open, toast]);
 
     const handleRemoveShow = () => {

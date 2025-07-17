@@ -155,16 +155,30 @@ export const useMovies = () => {
     const store = useMoviesStore();
 
     useEffect(() => {
+        // Evitar múltiplas chamadas durante a montagem do componente
+        let isMounted = true;
         let lastDataHash = '';
-        const unsubscribe = subscribeToMovies((movies) => {
+        
+        // Função para processar os dados recebidos
+        const processMovies = (movies) => {
+            if (!isMounted) return;
+            
             const dataHash = JSON.stringify(movies);
             if (dataHash !== lastDataHash) {
                 lastDataHash = dataHash;
                 store.setMovies(movies);
                 if (!store.isLoaded) store.setLoaded(true);
             }
-        });
-        return unsubscribe;
+        };
+        
+        // Iniciar a subscrição apenas uma vez
+        const unsubscribe = subscribeToMovies(processMovies);
+        
+        // Limpeza ao desmontar
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

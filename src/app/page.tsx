@@ -6,7 +6,11 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { useDashboardSettings } from "@/hooks/use-dashboard-settings";
 
 export default function Home() {
-    const { settings } = useDashboardSettings();
+    const { settings, isLoaded } = useDashboardSettings();
+
+    if (!isLoaded) {
+        return <div>Carregando...</div>;
+    }
 
     return (
         <main

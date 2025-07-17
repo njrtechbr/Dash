@@ -45,20 +45,31 @@ export function MovieDetailsDialog({ open, onOpenChange, movieId }: MovieDetails
     const [isLoading, setIsLoading] = React.useState(true);
     
     React.useEffect(() => {
-        if (open) {
+        // Evitar múltiplas chamadas durante a montagem do componente
+        let isMounted = true;
+        
+        if (open && movieId) {
             const fetchAllDetails = async () => {
                 setIsLoading(true);
                 try {
                     const movieDetails = await getMovieDetails(movieId);
-                    setDetails(movieDetails);
+                    if (isMounted) {
+                        setDetails(movieDetails);
+                    }
                 } catch (error) {
                     console.error("Error fetching movie details:", error);
                 } finally {
-                    setIsLoading(false);
+                    if (isMounted) {
+                        setIsLoading(false);
+                    }
                 }
             };
             fetchAllDetails();
         }
+        
+        return () => {
+            isMounted = false;
+        };
     }, [movieId, open]);
     
     const formatRuntime = (minutes: number | null) => {
