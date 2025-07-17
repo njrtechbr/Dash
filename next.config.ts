@@ -1,3 +1,5 @@
+
+import 'dotenv/config';
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -25,14 +27,9 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    // Database
     DATABASE_URL: process.env.DATABASE_URL,
-    
-    // APIs
-    TMDB_API_KEY: process.env.TMDB_API_KEY || 'e8d22c755d73bec02627838a3f4a7909',
-    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || 'AIzaSyC7KHunXJgj8LXL0UkxGil8R_Vp9h_uLBw',
-    
-
+    TMDB_API_KEY: process.env.TMDB_API_KEY,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
   }
 };
 
