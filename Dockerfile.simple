@@ -15,6 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Tentar instalar dependências de várias formas
 RUN npm cache clean --force
+RUN npm install dotenv --save
 RUN npm install --force || npm install --legacy-peer-deps --force || (npm install -g yarn && yarn install --ignore-engines)
 
 # Prisma e build
