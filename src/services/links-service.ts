@@ -1,115 +1,183 @@
-import { db } from '@/lib/firebase';
 import type { LinkItem } from '@/types';
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  writeBatch,
-} from 'firebase/firestore';
+
+let cachedLinks: LinkItem[] = [];
+let lastFetchTime = 0;
+const CACHE_DURATION = 30000; // 30 segundos
+
+export async function getLinks(): Promise<LinkItem[]> {
+  try {
+    const now = Date.now();
+    
+    // Use cache se ainda for válido
+    if (now - lastFetchTime < CACHE_DURATION && cachedLinks.length > 0) {
+      return cachedLinks;
+    }
+    
+    const response = await fetch('/api/links');
+    if (!response.ok) {
+      throw new Error('Failed to fetch links');
+    }
+    
+    const links = await response.json();
+    cachedLinks = links;
+    lastFetchTime = now;
+    
+    return links;
+  } catch (error) {
+    console.error("Error fetching links: ", error);
+    return cachedLinks; // Retorna cache em caso de erro
+  }
+}
 
 export function subscribeToLinks(callback: (links: LinkItem[]) => void): () => void {
-    const q = query(collection(db, 'links'), orderBy('createdAt', 'asc'));
+  let isActive = true;
+  let lastDataHash = '';
+  
+  const fetchAndNotify = async () => {
+    if (!isActive) return;
     
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const links: LinkItem[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        links.push({ 
-            id: doc.id,
-            ...data,
-            isFavorite: data.isFavorite || false,
-        } as LinkItem);
-      });
+    const links = await getLinks();
+    const dataHash = JSON.stringify(links);
+    
+    // Só notifica se os dados mudaram
+    if (dataHash !== lastDataHash) {
+      lastDataHash = dataHash;
       callback(links);
-    }, (error) => {
-        console.error("Error fetching links: ", error);
-        callback([]);
-    });
-    
-    return unsubscribe;
+    }
+  };
+
+  // Busca inicial
+  fetchAndNotify();
+
+  // Polling reduzido para 30 segundos
+  const interval = setInterval(fetchAndNotify, 30000);
+
+  return () => {
+    isActive = false;
+    clearInterval(interval);
+  };
+}
+
+export function invalidateLinksCache(): void {
+  cachedLinks = [];
+  lastFetchTime = 0;
 }
 
 export async function addLink(link: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>): Promise<void> {
-    try {
-      await addDoc(collection(db, 'links'), {
-        ...link,
-        isFavorite: false,
-        createdAt: new Date(),
-      });
-    } catch (error) {
-      console.error("Error adding document: ", error);
+  try {
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(link),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to add link');
     }
+    
+    // Invalida cache após mudança
+    invalidateLinksCache();
+  } catch (error) {
+    console.error("Error adding link: ", error);
+  }
 }
 
 export async function addMultipleLinks(newLinks: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>[]): Promise<void> {
-    try {
-      const batch = writeBatch(db);
-      newLinks.forEach((link) => {
-        const docRef = doc(collection(db, 'links'));
-        batch.set(docRef, {
-            ...link,
-            isFavorite: false,
-            createdAt: new Date(),
-        });
-      });
-      await batch.commit();
-    } catch (error) {
-      console.error("Error adding multiple documents: ", error);
+  try {
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(newLinks),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to add multiple links');
     }
+  } catch (error) {
+    console.error("Error adding multiple links: ", error);
+  }
 }
 
 export async function updateLink(id: string, updatedFields: Partial<Omit<LinkItem, 'id'>>): Promise<void> {
-    const linkDocRef = doc(db, 'links', id);
-    try {
-      await updateDoc(linkDocRef, updatedFields);
-    } catch (error) {
-      console.error("Error updating document: ", error);
+  try {
+    const response = await fetch(`/api/links/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedFields),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update link');
     }
+    
+    // Invalida cache após mudança
+    invalidateLinksCache();
+  } catch (error) {
+    console.error("Error updating link: ", error);
+  }
 }
 
 export async function deleteLink(id: string): Promise<void> {
-    try {
-      await deleteDoc(doc(db, 'links', id));
-    } catch (error) {
-      console.error("Error deleting document: ", error);
+  try {
+    const response = await fetch(`/api/links/${id}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete link');
     }
+    
+    // Invalida cache após mudança
+    invalidateLinksCache();
+  } catch (error) {
+    console.error("Error deleting link: ", error);
+  }
 }
 
 export async function toggleFavorite(id: string, isFavorite: boolean): Promise<void> {
-    const linkDocRef = doc(db, 'links', id);
-    try {
-      await updateDoc(linkDocRef, { isFavorite });
-    } catch (error) {
-      console.error("Error toggling favorite: ", error);
+  try {
+    const response = await fetch(`/api/links/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isFavorite }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to toggle favorite');
     }
+    
+    // Invalida cache após mudança
+    invalidateLinksCache();
+  } catch (error) {
+    console.error("Error toggling favorite: ", error);
+  }
 }
 
 export async function reorderLinks(draggedId: string, targetId: string, currentLinks: LinkItem[]): Promise<void> {
-    const links = [...currentLinks];
-    const draggedItemIndex = links.findIndex((l) => l.id === draggedId);
-    const targetItemIndex = links.findIndex((l) => l.id === targetId);
-    
-    if (draggedItemIndex === -1 || targetItemIndex === -1) return;
-
-    const [draggedItem] = links.splice(draggedItemIndex, 1);
-    
-    const newTargetIndex = links.findIndex((l) => l.id === targetId);
-    links.splice(newTargetIndex > draggedItemIndex ? newTargetIndex : newTargetIndex, 0, draggedItem);
-    
-    const batch = writeBatch(db);
-    links.forEach((link, index) => {
-      const docRef = doc(db, 'links', link.id);
-      batch.update(docRef, { createdAt: new Date(Date.now() + index) });
+  try {
+    const response = await fetch('/api/links/reorder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ draggedId, targetId, currentLinks }),
     });
-
-    try {
-        await batch.commit();
-    } catch(error) {
-        console.error("Error reordering links:", error);
+    
+    if (!response.ok) {
+      throw new Error('Failed to reorder links');
     }
+    
+    // Invalida cache após mudança
+    invalidateLinksCache();
+  } catch(error) {
+    console.error("Error reordering links:", error);
+  }
 }

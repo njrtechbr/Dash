@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { useEffect } from 'react';
 import type { LinkItem } from '@/types';
 import { 
     addLink as dbAddLink,
@@ -17,7 +18,8 @@ interface LinksState {
   isLoaded: boolean;
   linkToEdit: LinkItem | null;
   isLinkDialogOpen: boolean;
-  initializeLinks: () => () => void; // Returns the unsubscribe function
+  setLinks: (links: LinkItem[]) => void;
+  setLoaded: (loaded: boolean) => void;
   addLink: (link: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>) => Promise<void>;
   addMultipleLinks: (newLinks: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>[]) => Promise<void>;
   updateLink: (id: string, updatedFields: Partial<Omit<LinkItem, 'id'>>) => Promise<void>;
@@ -37,41 +39,55 @@ const useLinksStore = create<LinksState>((set, get) => ({
   linkToEdit: null,
   isLinkDialogOpen: false,
   
-  initializeLinks: () => {
-    const unsubscribe = subscribeToLinks((links) => {
-      set({ links, isLoaded: true });
-    });
-    return unsubscribe;
-  },
+  setLinks: (links) => set({ links }),
+  setLoaded: (loaded) => set({ isLoaded: loaded }),
 
   addLink: async (link) => {
     await dbAddLink(link);
+    // Força atualização imediata
+    const freshLinks = await (await fetch('/api/links')).json();
+    set({ links: freshLinks });
   },
 
   addMultipleLinks: async (newLinks) => {
     await dbAddMultipleLinks(newLinks);
+    // Força atualização imediata
+    const freshLinks = await (await fetch('/api/links')).json();
+    set({ links: freshLinks });
   },
 
   updateLink: async (id, updatedFields) => {
     await dbUpdateLink(id, updatedFields);
+    // Força atualização imediata
+    const freshLinks = await (await fetch('/api/links')).json();
+    set({ links: freshLinks });
   },
 
   deleteLink: async (id) => {
     await dbDeleteLink(id);
+    // Força atualização imediata
+    const freshLinks = await (await fetch('/api/links')).json();
+    set({ links: freshLinks });
   },
-    
+
   toggleFavorite: async (id) => {
-    const linkToToggle = get().links.find(link => link.id === id);
-    if (linkToToggle) {
-        await dbToggleFavorite(id, !linkToToggle.isFavorite);
+    const link = get().links.find(l => l.id === id);
+    if (link) {
+      await dbToggleFavorite(id, !link.isFavorite);
+      // Força atualização imediata
+      const freshLinks = await (await fetch('/api/links')).json();
+      set({ links: freshLinks });
     }
   },
 
   reorderLinks: async (draggedId, targetId) => {
     const currentLinks = get().links;
     await dbReorderLinks(draggedId, targetId, currentLinks);
+    // Força atualização imediata
+    const freshLinks = await (await fetch('/api/links')).json();
+    set({ links: freshLinks });
   },
-    
+
   handleEditLink: (link) => {
     set({ linkToEdit: link, isLinkDialogOpen: true });
   },
@@ -80,28 +96,35 @@ const useLinksStore = create<LinksState>((set, get) => ({
     set({ linkToEdit: null, isLinkDialogOpen: true });
   },
 
-  handleDeleteLink: (id) => {
-      get().deleteLink(id);
+  handleDeleteLink: async (id) => {
+    await get().deleteLink(id);
   },
-  
-  setLinkToEdit: (link) => set({ linkToEdit: link }),
-  
+
+  setLinkToEdit: (link) => {
+    set({ linkToEdit: link });
+  },
+
   setLinkDialogOpen: (isOpen) => {
-      set({ isLinkDialogOpen: isOpen });
-      if (!isOpen) {
-          set({ linkToEdit: null });
-      }
+    set({ isLinkDialogOpen: isOpen });
   },
 }));
 
-let unsubscribe: (() => void) | null = null;
-
 export const useLinks = () => {
-    const store = useLinksStore();
+  const store = useLinksStore();
 
-    if (typeof window !== 'undefined' && !unsubscribe) {
-        unsubscribe = store.initializeLinks();
-    }
-    
-    return store;
+  useEffect(() => {
+    let lastDataHash = '';
+    const unsubscribe = subscribeToLinks((links) => {
+      const dataHash = JSON.stringify(links);
+      if (dataHash !== lastDataHash) {
+        lastDataHash = dataHash;
+        store.setLinks(links);
+        if (!store.isLoaded) store.setLoaded(true);
+      }
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return store;
 };

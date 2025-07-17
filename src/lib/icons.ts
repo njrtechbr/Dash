@@ -1,4 +1,5 @@
 import type { Icon } from '@/types';
+import type { LucideIcon } from 'lucide-react';
 import {
   Globe,
   Github,

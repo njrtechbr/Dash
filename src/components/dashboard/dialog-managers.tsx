@@ -10,8 +10,10 @@ export function DialogManagers() {
     const { isShowDetailsOpen, setShowDetailsOpen, showDetailsId } = useShows();
     const { isMovieDetailsOpen, setMovieDetailsOpen, movieDetailsId } = useMovies();
 
-    // Using require to avoid circular dependency issues at build time
+    // Using dynamic import to avoid circular dependency issues at build time
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ShowDetailsDialog = require('@/components/dashboard/show-details-dialog').ShowDetailsDialog;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const MovieDetailsDialog = require('@/components/dashboard/movie-details-dialog').MovieDetailsDialog;
 
     return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { useEffect } from 'react';
 import type { Movie, TMDbMovieDetails } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { getMovieDetails } from '@/services/tmdb';
@@ -17,7 +18,8 @@ interface MoviesState {
   isLoaded: boolean;
   movieDetailsId: number | null;
   isMovieDetailsOpen: boolean;
-  initializeMovies: () => () => void;
+  setMovies: (movies: Movie[]) => void;
+  setLoaded: (loaded: boolean) => void;
   addMovie: (movie: Omit<Movie, 'watched' | 'id'> & { id: number }) => void;
   removeMovie: (movieId: number) => Promise<void>;
   toggleMovieWatched: (movieId: number) => Promise<void>;
@@ -33,13 +35,12 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
     movieDetailsId: null,
     isMovieDetailsOpen: false,
 
-    initializeMovies: () => {
-        const unsubscribe = subscribeToMovies((movies) => {
-            set({ movies });
-            get().fetchMissingDetails(movies);
-        });
-        return unsubscribe;
+    setMovies: (movies) => {
+      set({ movies });
+      get().fetchMissingDetails(movies);
     },
+    
+    setLoaded: (loaded) => set({ isLoaded: loaded }),
 
     fetchMissingDetails: async (movies) => {
         const state = get();
@@ -48,70 +49,101 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
         if (moviesToFetch.length === 0) {
             if (!state.isLoaded) set({ isLoaded: true });
             return;
-        };
+        }
 
-        const detailsPromises = moviesToFetch.map(movie => getMovieDetails(movie.id));
-        const results = await Promise.all(detailsPromises);
-
-        const newDetails: Record<number, TMDbMovieDetails> = {};
-        results.forEach(detail => {
-            if (detail) {
-                newDetails[detail.id] = detail;
-            }
-        });
-        
-        set(prevState => ({ 
-            details: { ...prevState.details, ...newDetails },
-            isLoaded: true 
-        }));
+        try {
+            const detailsPromises = moviesToFetch.map(movie => 
+                getMovieDetails(movie.id.toString())
+            );
+            
+            const detailsResults = await Promise.all(detailsPromises);
+            
+            const newDetails = { ...state.details };
+            detailsResults.forEach((details, index) => {
+                if (details) {
+                    newDetails[moviesToFetch[index].id] = details;
+                }
+            });
+            
+            set({ details: newDetails, isLoaded: true });
+        } catch (error) {
+            console.error('Error fetching movie details:', error);
+            set({ isLoaded: true });
+        }
     },
 
     addMovie: async (movie) => {
-        const state = get();
-        if (state.movies.some((m) => m.id === movie.id)) {
+        try {
+            await dbAddMovie(movie);
+            // Força atualização imediata
+            const freshMovies = await (await fetch('/api/movies')).json();
+            set({ movies: freshMovies });
+            get().fetchMissingDetails(freshMovies);
             toast({
-                variant: 'destructive',
-                title: 'Filme já adicionado',
-                description: 'Você já adicionou este filme à sua lista.',
+                title: "Filme adicionado",
+                description: `${movie.title} foi adicionado à sua lista.`,
             });
-            return;
+        } catch (error) {
+            console.error('Error adding movie:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+            toast({
+                title: "Erro",
+                description: errorMessage === 'Filme já adicionado' ? 'Este filme já está na sua lista.' : "Erro ao adicionar filme. Tente novamente.",
+                variant: "destructive",
+            });
         }
-        await dbAddMovie(movie);
-        toast({
-            title: 'Filme Adicionado!',
-            description: `${movie.title} foi adicionado à sua lista.`,
-        });
     },
 
     removeMovie: async (movieId) => {
-        const movieToRemove = get().movies.find((m) => m.id === movieId);
-        if (movieToRemove && movieToRemove.docId) {
-            await dbRemoveMovie(movieToRemove.docId);
+        try {
+            await dbRemoveMovie(movieId);
+            // Força atualização imediata
+            const freshMovies = await (await fetch('/api/movies')).json();
+            set({ movies: freshMovies });
+            get().fetchMissingDetails(freshMovies);
             toast({
-                variant: 'destructive',
-                title: 'Filme Removido',
-                description: `${movieToRemove.title} foi removido da sua lista.`,
+                title: "Filme removido",
+                description: "O filme foi removido da sua lista.",
+            });
+        } catch (error) {
+            console.error('Error removing movie:', error);
+            toast({
+                title: "Erro",
+                description: "Erro ao remover filme. Tente novamente.",
+                variant: "destructive",
             });
         }
     },
 
     toggleMovieWatched: async (movieId) => {
-        const movieToToggle = get().movies.find((m) => m.id === movieId);
-        if (movieToToggle && movieToToggle.docId) {
-            const newWatchedState = !movieToToggle.watched;
-            await dbToggleMovieWatched(movieToToggle.docId, newWatchedState);
+        const movie = get().movies.find(m => m.id === movieId);
+        if (!movie) return;
+
+        try {
+            await dbToggleMovieWatched(movieId, !movie.watched);
+            // Força atualização imediata
+            const freshMovies = await (await fetch('/api/movies')).json();
+            set({ movies: freshMovies });
+            get().fetchMissingDetails(freshMovies);
             toast({
-                title: `Filme ${newWatchedState ? 'Assistido' : 'Não Assistido'}`,
-                description: `Você marcou "${movieToToggle.title}" como ${newWatchedState ? 'assistido' : 'não assistido'}.`,
+                title: movie.watched ? "Filme marcado como não assistido" : "Filme marcado como assistido",
+                description: `${movie.title} foi atualizado.`,
+            });
+        } catch (error) {
+            console.error('Error toggling movie watched:', error);
+            toast({
+                title: "Erro",
+                description: "Erro ao atualizar filme. Tente novamente.",
+                variant: "destructive",
             });
         }
     },
 
-    handleMovieDetailsClick: (movieId: number) => {
+    handleMovieDetailsClick: (movieId) => {
         set({ movieDetailsId: movieId, isMovieDetailsOpen: true });
     },
 
-    setMovieDetailsOpen: (isOpen: boolean) => {
+    setMovieDetailsOpen: (isOpen) => {
         set({ isMovieDetailsOpen: isOpen });
         if (!isOpen) {
             set({ movieDetailsId: null });
@@ -119,13 +151,22 @@ const useMoviesStore = create<MoviesState>((set, get) => ({
     },
 }));
 
-
-let unsubscribeMovies: (() => void) | null = null;
-
 export const useMovies = () => {
     const store = useMoviesStore();
-    if (typeof window !== 'undefined' && !unsubscribeMovies) {
-        unsubscribeMovies = store.initializeMovies();
-    }
+
+    useEffect(() => {
+        let lastDataHash = '';
+        const unsubscribe = subscribeToMovies((movies) => {
+            const dataHash = JSON.stringify(movies);
+            if (dataHash !== lastDataHash) {
+                lastDataHash = dataHash;
+                store.setMovies(movies);
+                if (!store.isLoaded) store.setLoaded(true);
+            }
+        });
+        return unsubscribe;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return store;
 };

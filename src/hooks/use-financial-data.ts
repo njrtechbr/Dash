@@ -39,7 +39,7 @@ export const useFinancialData = () => {
             if (!currentDataResponse.ok) throw new Error('Falha ao buscar cotações atuais.');
             const currentData = await currentDataResponse.json();
 
-            const historyData: Record<string, any[]> = {};
+            const historyData: Record<string, unknown[]> = {};
             await Promise.all(historyResponses.map(async (res, index) => {
                 if (res.ok) {
                     historyData[CODES[index]] = await res.json();

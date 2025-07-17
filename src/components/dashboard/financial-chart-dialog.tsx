@@ -32,7 +32,7 @@ interface FinancialChartDialogProps {
 export function FinancialChartDialog({ open, onOpenChange, data }: FinancialChartDialogProps) {
   if (!data) return null;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="rounded-lg border bg-background p-2 shadow-sm">

@@ -19,7 +19,7 @@ import { findIcon } from '@/lib/icons';
 interface BatchLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (links: Omit<LinkItem, 'id'>[]) => void;
+  onSave: (links: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>[]) => void;
 }
 
 export function BatchLinkDialog({ open, onOpenChange, onSave }: BatchLinkDialogProps) {
@@ -28,7 +28,7 @@ export function BatchLinkDialog({ open, onOpenChange, onSave }: BatchLinkDialogP
 
   const handleSave = () => {
     const lines = textValue.split('\n').filter((line) => line.trim() !== '');
-    const newLinks: Omit<LinkItem, 'id'>[] = [];
+    const newLinks: Omit<LinkItem, 'id' | 'isFavorite' | 'createdAt'>[] = [];
 
     for (const line of lines) {
       const parts = line.split(',').map((part) => part.trim());
@@ -109,7 +109,7 @@ Github, https://github.com, Github, Desenvolvimento"
               className="h-48"
             />
              <p className="text-xs text-muted-foreground">
-              O nome do ícone deve corresponder aos disponíveis no seletor. Se o grupo não for informado, será 'Geral'.
+              O nome do ícone deve corresponder aos disponíveis no seletor. Se o grupo não for informado, será &apos;Geral&apos;.
             </p>
           </div>
         </div>

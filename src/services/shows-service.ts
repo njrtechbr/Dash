@@ -1,107 +1,163 @@
-import { db } from '@/lib/firebase';
 import type { Show, WatchedEpisode, Episode } from '@/types';
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  onSnapshot,
-} from 'firebase/firestore';
 
+let cachedShows: Show[] = [];
+let lastFetchTime = 0;
+const CACHE_DURATION = 30000; // 30 segundos
+
+export async function getShows(): Promise<Show[]> {
+  try {
+    const now = Date.now();
+    
+    // Use cache se ainda for válido
+    if (now - lastFetchTime < CACHE_DURATION && cachedShows.length > 0) {
+      return cachedShows;
+    }
+    
+    const response = await fetch('/api/shows');
+    if (!response.ok) {
+      throw new Error('Failed to fetch shows');
+    }
+    
+    const shows = await response.json();
+    cachedShows = shows;
+    lastFetchTime = now;
+    
+    return shows;
+  } catch (error) {
+    console.error("Error fetching shows: ", error);
+    return cachedShows; // Retorna cache em caso de erro
+  }
+}
 
 export function subscribeToShows(callback: (shows: Show[]) => void): () => void {
-    const q = query(collection(db, 'shows'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const shows: Show[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            shows.push({ 
-                id: data.id,
-                docId: doc.id,
-                ...data 
-            } as Show);
-        });
-        callback(shows);
-    }, (error) => {
-        console.error("Error fetching shows: ", error);
-        callback([]);
+  let isActive = true;
+  let lastDataHash = '';
+  
+  const fetchAndNotify = async () => {
+    if (!isActive) return;
+    
+    const shows = await getShows();
+    const dataHash = JSON.stringify(shows);
+    
+    // Só notifica se os dados mudaram
+    if (dataHash !== lastDataHash) {
+      lastDataHash = dataHash;
+      callback(shows);
+    }
+  };
+
+  // Busca inicial
+  fetchAndNotify();
+
+  // Polling reduzido para 30 segundos
+  const interval = setInterval(fetchAndNotify, 30000);
+
+  return () => {
+    isActive = false;
+    clearInterval(interval);
+  };
+}
+
+export function invalidateShowsCache(): void {
+  cachedShows = [];
+  lastFetchTime = 0;
+}
+
+export async function addShow(show: Omit<Show, 'watched_episodes'>): Promise<void> {
+  try {
+    const response = await fetch('/api/shows', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(show),
     });
-    return unsubscribe;
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 409) {
+        throw new Error('Série já adicionada');
+      }
+      throw new Error('Failed to add show');
+    }
+    
+    // Invalida cache após mudança
+    invalidateShowsCache();
+  } catch(e) {
+    console.error("Error adding show: ", e);
+    throw e;
+  }
 }
 
-export async function addShow(show: Omit<Show, 'watched_episodes' | 'docId'>): Promise<void> {
-    try {
-      await addDoc(collection(db, 'shows'), {
-        id: show.id,
-        name: show.name,
-        poster_path: show.poster_path,
-        watched_episodes: []
-      });
-    } catch(e) {
-      console.error("Error adding show: ", e);
-      throw e;
+export async function removeShow(showId: number): Promise<void> {
+  try {
+    const response = await fetch(`/api/shows/${showId}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to remove show');
     }
-}
-
-export async function removeShow(docId: string): Promise<void> {
-    try {
-        await deleteDoc(doc(db, "shows", docId));
-    } catch(e) {
-        console.error("Error removing show: ", e);
-        throw e;
-    }
+    
+    // Invalida cache após mudança
+    invalidateShowsCache();
+  } catch(e) {
+    console.error("Error removing show: ", e);
+    throw e;
+  }
 }
 
 export async function toggleWatchedEpisode(show: Show, episode: Episode, isWatched: boolean): Promise<void> {
-    if (!show.docId) return;
+  const episodeId = `S${episode.season_number}E${episode.episode_number}`;
 
-    const episodeId = `S${episode.season_number}E${episode.episode_number}`;
-    const watchedEpisodes = show.watched_episodes || [];
-    let newWatchedEpisodes: WatchedEpisode[];
-
-    if (isWatched) {
-        if (watchedEpisodes.some(e => e.episodeId === episodeId)) return;
-        newWatchedEpisodes = [...watchedEpisodes, { episodeId, episodeName: episode.name, watchedAt: new Date().toISOString() }];
-    } else {
-        newWatchedEpisodes = watchedEpisodes.filter(e => e.episodeId !== episodeId);
+  try {
+    const response = await fetch('/api/shows/episodes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        showId: show.id,
+        episodeId,
+        episodeName: episode.name,
+        isWatched
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to toggle watched episode');
     }
-
-    try {
-        const docRef = doc(db, "shows", show.docId);
-        await updateDoc(docRef, { watched_episodes: newWatchedEpisodes });
-    } catch(e) {
-        console.error("Error updating watched episodes: ", e);
-        throw e;
-    }
+    
+    // Invalida cache após mudança
+    invalidateShowsCache();
+  } catch(e) {
+    console.error("Error updating watched episodes: ", e);
+    throw e;
+  }
 }
 
-
 export async function toggleSeasonWatched(show: Show, seasonEpisodes: Episode[], markAsWatched: boolean): Promise<void> {
-    if (!show.docId) return;
+  try {
+    const response = await fetch('/api/shows/seasons', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        showId: show.id,
+        seasonEpisodes,
+        markAsWatched
+      }),
+    });
     
-    let watchedEpisodes = show.watched_episodes || [];
-
-    if (markAsWatched) {
-        const episodesToAdd = seasonEpisodes
-            .map(ep => ({
-            episodeId: `S${ep.season_number}E${ep.episode_number}`,
-            episodeName: ep.name,
-            watchedAt: new Date().toISOString()
-            }))
-            .filter(epToAdd => !watchedEpisodes.some(existingEp => existingEp.episodeId === epToAdd.episodeId));
-        watchedEpisodes = [...watchedEpisodes, ...episodesToAdd];
-    } else {
-        const seasonEpisodeIds = new Set(seasonEpisodes.map(ep => `S${ep.season_number}E${ep.episode_number}`));
-        watchedEpisodes = watchedEpisodes.filter(ep => !seasonEpisodeIds.has(ep.episodeId));
+    if (!response.ok) {
+      throw new Error('Failed to toggle season watched');
     }
-
-    try {
-        const docRef = doc(db, "shows", show.docId);
-        await updateDoc(docRef, { watched_episodes: watchedEpisodes });
-    } catch(e) {
-        console.error("Error updating season watched episodes: ", e);
-        throw e;
-    }
+    
+    // Invalida cache após mudança
+    invalidateShowsCache();
+  } catch(e) {
+    console.error("Error updating season watched episodes: ", e);
+    throw e;
+  }
 }

@@ -25,6 +25,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { invalidateLinksCache } from '@/services/links-service';
+import { invalidateMoviesCache } from '@/services/movies-service';
+import { invalidateShowsCache } from '@/services/shows-service';
+import { toast } from '@/components/ui/use-toast';
 
 
 interface InfoCardProps {
@@ -209,6 +213,35 @@ export default function Dashboard() {
         setIsChartOpen(true);
     }
   };
+  
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      // Invalida todos os caches
+      invalidateLinksCache();
+      invalidateMoviesCache();
+      invalidateShowsCache();
+      
+      // Aguarda um pouco para que os dados sejam recarregados
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Dados atualizados",
+        description: "Todos os dados foram atualizados com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar dados. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const { groupedLinks, favoriteLinks } = React.useMemo(() => {
     const favorites: LinkItem[] = [];
@@ -257,6 +290,28 @@ export default function Dashboard() {
   return (
     <SidebarInset>
       <div className="flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshAll}
+                  disabled={isRefreshing}
+                  className="gap-2"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                  Atualizar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Atualizar todos os dados</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         {isLoaded && favoriteLinks.length > 0 && (
             <div>
                 <h2 className="text-2xl font-bold tracking-tight mb-4 text-foreground/90 flex items-center gap-2"><Star className='h-6 w-6 text-yellow-400 fill-yellow-400'/> Favoritos</h2>
